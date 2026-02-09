@@ -1,0 +1,27 @@
+app_env: local
+log_level: INFO
+
+paths:
+  data_dir: ./data
+  index_dir: ./data/indices
+
+ollama:
+  base_url: http://localhost:11434
+  embed_model: qwen3-embedding
+  llm_model: qwen3:4b
+  timeout_s: 120
+
+cloud:
+  provider: generic
+  api_url: https://example-llm-provider/v1/generate
+  api_key: replace-me
+  model: best-model
+  timeout_s: 30
+
+rag:
+  top_k: 5
+  chunk_size: 900
+  chunk_overlap: 180
+  min_score: 0.0
+  use_cloud_first: false
+  fallback_to_ollama: true
