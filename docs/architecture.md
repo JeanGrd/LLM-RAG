@@ -6,6 +6,8 @@ The system follows a classic RAG pipeline with two model planes:
 - Cloud LLM for generation (primary).
 - Local Ollama for embeddings and as a fallback LLM.
 
+Primary generation provider and model can be selected from config (`model.provider` and `model.name`).
+
 ## Data Flow
 
 1. Ingestion
@@ -33,6 +35,8 @@ The system follows a classic RAG pipeline with two model planes:
 - `rag/llm/` cloud + Ollama adapters.
 - `rag/rag/` orchestration and prompts.
 - `rag/api/` FastAPI service.
+  - Native endpoint: `/query`
+  - OpenAI-compatible endpoints: `/v1/models`, `/v1/chat/completions`
 
 ## Scaling Notes
 

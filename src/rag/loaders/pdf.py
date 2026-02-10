@@ -3,12 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List
 
-from pypdf import PdfReader
+try:
+    from pypdf import PdfReader
+except ImportError:  # pragma: no cover - optional dependency
+    PdfReader = None
 
 from ..models import Document
 
 
 def load_pdf(path: Path) -> List[Document]:
+    if PdfReader is None:
+        raise ImportError("pypdf is required for PDF loading")
     reader = PdfReader(str(path))
     docs: List[Document] = []
     for idx, page in enumerate(reader.pages):

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from typing import Iterable, List
 
-import chromadb
+try:
+    import chromadb
+except ImportError:  # pragma: no cover - optional dependency
+    chromadb = None
 
 from ..models import Document, RetrievalResult
 from .base import VectorStore
@@ -10,6 +13,8 @@ from .base import VectorStore
 
 class ChromaVectorStore(VectorStore):
     def __init__(self, index_dir: str, collection_name: str = "rag"):
+        if chromadb is None:
+            raise ImportError("chromadb is required for ChromaVectorStore")
         self.client = chromadb.PersistentClient(path=index_dir)
         self.collection = self.client.get_or_create_collection(name=collection_name)
 
@@ -20,7 +25,7 @@ class ChromaVectorStore(VectorStore):
         ids = [d.doc_id for d in docs]
         metadatas = [d.metadata for d in docs]
         texts = [d.text for d in docs]
-        self.collection.add(
+        self.collection.upsert(
             ids=ids,
             embeddings=embeddings,
             documents=texts,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
+import json
+from typing import Iterable, Optional
 
 import requests
 
@@ -53,3 +54,31 @@ class OllamaLLM(LLM):
         if choices:
             return choices[0].get("message", {}).get("content", "")
         return ""
+
+    def stream(self, prompt: str, system_prompt: Optional[str] = None) -> Iterable[str]:
+        """
+        Stream tokens from Ollama. Uses /api/generate with stream=true.
+        """
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": True,
+            "system": system_prompt or "",
+        }
+        resp = requests.post(
+            f"{self.base_url}/api/generate",
+            json=payload,
+            stream=True,
+            timeout=self.timeout_s,
+        )
+        resp.raise_for_status()
+        for line in resp.iter_lines():
+            if not line:
+                continue
+            try:
+                data = json.loads(line.decode("utf-8"))
+            except json.JSONDecodeError:
+                continue
+            chunk = data.get("response")
+            if chunk:
+                yield chunk

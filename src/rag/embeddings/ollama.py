@@ -14,9 +14,16 @@ class OllamaEmbeddings(Embeddings):
         self.timeout_s = timeout_s
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        # Try endpoints in order (new -> legacy -> OpenAI compatible).
+        """Embed texts by trying Ollama endpoints from newest to oldest.
+
+        Preference order:
+        1. `/api/embed` (v2)
+        2. `/api/embeddings` (v1)
+        3. OpenAI-compatible `/v1/embeddings`
+        """
+
         last_err: Optional[Exception] = None
-        for fn in (self._embed_openai, self._embed_v2, self._embed_v1):
+        for fn in (self._embed_v2, self._embed_v1, self._embed_openai):
             try:
                 return fn(texts)
             except requests.HTTPError as exc:

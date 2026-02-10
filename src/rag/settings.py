@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, Literal
 
 import yaml
 from dotenv import dotenv_values
@@ -38,6 +38,41 @@ class RagConfig(BaseModel):
     fallback_to_ollama: bool = True
 
 
+class ModelConfig(BaseModel):
+    """
+    Runtime model selection:
+    - provider: "cloud" | "ollama" | "auto" (keeps legacy behavior from rag.use_cloud_first)
+    - name: optional override for the selected provider model
+    """
+
+    provider: Literal["auto", "cloud", "ollama"] = "auto"
+    name: str = ""
+
+
+def _coerce_env_bool(value: Any) -> Any:
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes", "y"}:
+            return True
+        if lowered in {"false", "0", "no", "n"}:
+            return False
+    return value
+
+
+def _coerce_env_number(value: Any, allow_float: bool = False) -> Any:
+    if not isinstance(value, str):
+        return value
+    try:
+        return int(value)
+    except ValueError:
+        if allow_float:
+            try:
+                return float(value)
+            except ValueError:
+                return value
+        return value
+
+
 def yaml_config_settings_source() -> Dict[str, Any]:
     config_path = os.getenv("RAG_CONFIG_PATH", "config/settings.yaml")
     if not os.path.exists(config_path):
@@ -54,7 +89,8 @@ def legacy_env_settings_source() -> Dict[str, Any]:
     Support flat env vars like OLLAMA_BASE_URL in addition to nested OLLAMA__BASE_URL.
     Reads from both os.environ and .env (without exporting to os.environ).
     """
-    env = {**dotenv_values(".env"), **os.environ}
+    env_file_vals = dotenv_values(".env")
+    env = {**env_file_vals, **os.environ}
     data: Dict[str, Any] = {}
 
     def set_nested(path: str, value: Any) -> None:
@@ -77,12 +113,15 @@ def legacy_env_settings_source() -> Dict[str, Any]:
     set_nested("cloud.model", env.get("CLOUD_MODEL"))
     set_nested("cloud.timeout_s", env.get("CLOUD_TIMEOUT_S"))
 
-    set_nested("rag.top_k", env.get("TOP_K"))
-    set_nested("rag.chunk_size", env.get("CHUNK_SIZE"))
-    set_nested("rag.chunk_overlap", env.get("CHUNK_OVERLAP"))
-    set_nested("rag.min_score", env.get("MIN_SCORE"))
-    set_nested("rag.use_cloud_first", env.get("USE_CLOUD_FIRST"))
-    set_nested("rag.fallback_to_ollama", env.get("FALLBACK_TO_OLLAMA"))
+    set_nested("rag.top_k", _coerce_env_number(env.get("TOP_K")))
+    set_nested("rag.chunk_size", _coerce_env_number(env.get("CHUNK_SIZE")))
+    set_nested("rag.chunk_overlap", _coerce_env_number(env.get("CHUNK_OVERLAP")))
+    set_nested("rag.min_score", _coerce_env_number(env.get("MIN_SCORE"), allow_float=True))
+    set_nested("rag.use_cloud_first", _coerce_env_bool(env.get("USE_CLOUD_FIRST")))
+    set_nested("rag.fallback_to_ollama", _coerce_env_bool(env.get("FALLBACK_TO_OLLAMA")))
+
+    set_nested("model.provider", env.get("MODEL_PROVIDER"))
+    set_nested("model.name", env.get("MODEL_NAME"))
 
     set_nested("app_env", env.get("APP_ENV"))
     set_nested("log_level", env.get("LOG_LEVEL"))
@@ -97,6 +136,7 @@ class Settings(BaseSettings):
     ollama: OllamaConfig = Field(default_factory=OllamaConfig)
     cloud: CloudConfig = Field(default_factory=CloudConfig)
     rag: RagConfig = Field(default_factory=RagConfig)
+    model: ModelConfig = Field(default_factory=ModelConfig)
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
@@ -122,6 +162,11 @@ class Settings(BaseSettings):
             dotenv_settings,
             file_secret_settings,
         )
+
+    def primary_provider(self) -> Literal["cloud", "ollama"]:
+        if self.model.provider in ("cloud", "ollama"):
+            return self.model.provider
+        return "cloud" if self.rag.use_cloud_first else "ollama"
 
 
 def load_settings() -> Settings:
