@@ -1,92 +1,100 @@
-# LLM-RAG (English)
+# LLM-RAG
 
-Fast, minimal Retrieval-Augmented Generation stack with:
-- Ollama for embeddings + local/fallback LLM
-- Optional cloud LLM adapter
-- FastAPI backend exposing native and OpenAI-compatible endpoints (with streaming)
-- Open WebUI supported (run separately; no Docker required)
+Lean Retrieval-Augmented Generation backend with:
+- FastAPI API (`/query` and OpenAI-compatible `/v1/*`)
+- Chroma vector index
+- Ollama for embeddings and generation
+- Open WebUI support through a single backend endpoint
 
-## Quickstart
+## Installation
+
+### Prerequisites
+- Python `3.11+`
+- Ollama installed and running (`ollama serve`)
+
+### Setup
 ```bash
 cd /Users/jean/IdeaProjects/LLM-RAG
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
-pip install -e .                 # offline-friendly (setuptools)
-./scripts/prepare_ollama.sh      # pull chat + embedding models if missing
-```
-
-Configure (env preferred):
-```bash
+pip install -e .
 cp .env.example .env
-# adjust MODEL_NAME, OLLAMA_BASE_URL, keys, etc.
 ```
 
-Run API (local host using Ollama):
+## Prepare Models
+```bash
+./scripts/prepare_ollama.sh
+```
+Default models:
+- chat: `qwen2.5:1.5b`
+- embeddings: `nomic-embed-text`
+
+Override with:
+```bash
+CHAT_MODEL=phi3:mini EMBED_MODEL=nomic-embed-text ./scripts/prepare_ollama.sh
+```
+
+## Build Index
+```bash
+python scripts/ingest.py
+```
+
+Full rebuild:
+```bash
+make reindex
+```
+
+## Run API
 ```bash
 export OLLAMA_BASE_URL=http://localhost:11434
 export MODEL_PROVIDER=ollama
-export MODEL_NAME=qwen2.5:1.5b   # or any installed chat model
-python scripts/run_api.py        # listens on :8000
+export MODEL_NAME=qwen2.5:1.5b
+python scripts/run_api.py
 ```
-One-liner “quick & dirty” runners:
+
+API is available at `http://localhost:8000`.
+
+If you get `ModuleNotFoundError: No module named 'uvicorn'`, install project dependencies in the venv:
 ```bash
-./scripts/run_quick_mac.sh        # macOS
-# or
-./scripts/run_quick_rhel7.sh      # RHEL 7.9
-# add FORCE_REINDEX=1 to rebuild the index
+pip install -e . --no-build-isolation
 ```
+
+## Open WebUI (Single Source)
+
+Run Open WebUI separately (its own virtual environment is recommended), then configure only:
+- Base URL: `http://localhost:8000/v1`
+- API key: any non-empty value (for example `local-rag`)
+
+Important:
+- Do not use direct Ollama integration in Open WebUI for this project.
+- Use only the OpenAI-compatible connection above, otherwise requests can bypass RAG.
 
 ## Endpoints
-- `/query` — simple JSON, non-stream, returns answer + sources.
-- `/v1/models` — OpenAI-compatible list.
-- `/v1/chat/completions` — OpenAI-compatible chat **with streaming SSE** (`stream=true`).
+- `POST /query`: simple non-streaming RAG response with sources
+- `GET /v1/models`: returns the single configured runtime model
+- `POST /v1/chat/completions`: OpenAI-compatible chat (supports `stream=true`)
+- `GET /health`: health and runtime information
 
-### cURL examples
+## cURL Examples
 Non-stream:
 ```bash
 curl -X POST http://localhost:8000/query \
   -H 'Content-Type: application/json' \
-  -d '{"question":"What is policy X?"}'
+  -d '{"question":"Parle moi de Moko"}'
 ```
-Stream (SSE):
+
+Stream:
 ```bash
 curl -N -X POST http://localhost:8000/v1/chat/completions \
   -H 'Content-Type: application/json' \
-  -d '{"model":"qwen2.5:1.5b","stream":true,"messages":[{"role":"user","content":"Explain X"}]}'
+  -d '{"model":"qwen2.5:1.5b","stream":true,"messages":[{"role":"user","content":"Parle moi de Moko"}]}'
 ```
 
-## Open WebUI (no Docker)
-- Needs Python >=3.11 in a separate venv.
-- Example:
-```bash
-python3.11 -m venv ~/openwebui-venv
-source ~/openwebui-venv/bin/activate
-pip install --upgrade pip
-pip install open-webui
-export OPENAI_API_BASE_URL=http://localhost:8000/v1
-export OPENAI_API_KEY=local-rag
-open-webui serve --host 0.0.0.0 --port 3000
-```
-- In the UI, pick any model from `/v1/models` (e.g., `qwen2.5:1.5b`) and enable “Stream response”.
+## Optional Helper Scripts
+- `scripts/install_python_311_rhel7.sh`
+- `scripts/install_python_311_mac.sh`
+- `scripts/run_quick_rhel7.sh`
+- `scripts/run_quick_mac.sh`
 
-## Data ingestion
-```bash
-python scripts/ingest.py          # reads data/raw, builds Chroma index
-make reindex                      # full rebuild
-```
-The ingester pings Ollama first; ensure `ollama serve` is running and `nomic-embed-text` is pulled.
-Supports PDF, Markdown, HTML, XML/JSON/YAML, and plain text. Documents are chunked word-wise.
-
-## Project layout (short)
-```
-config/            settings, logging
-scripts/           ingest, query CLI, run API, compose helper
-src/rag/           core (api, llm, embeddings, loaders, vectorstore, rag pipeline)
-tests/             unit tests (loaders, settings, pipeline)
-```
-
-## Notes
-- Default embeddings: `nomic-embed-text` (Ollama).
-- Set `MODEL_NAME` to an installed chat model in Ollama (`ollama list`).
-- Streaming headers disable proxy buffering (`X-Accel-Buffering: no`) to keep token flow live.
+These are convenience scripts only. The manual setup above is the canonical path.

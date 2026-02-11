@@ -1,18 +1,16 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
-from uuid import uuid4
-
 from functools import lru_cache
 from typing import List, Optional
-
-import requests
-import json
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+import requests
 
 from ..logging import setup_logging
 from ..rag import RagPipeline
@@ -92,21 +90,14 @@ def get_pipeline() -> RagPipeline:
 
 def _configured_model_name(current: Optional[Settings] = None) -> str:
     cfg = current or settings
-    provider = cfg.primary_provider()
-    return cfg.model.name or (cfg.cloud.model if provider == "cloud" else cfg.ollama.llm_model)
+    return (cfg.model.name or cfg.ollama.llm_model).strip()
 
 
 def _build_settings_for_model(model_name: str) -> Settings:
     requested = model_name.strip()
-    if not requested:
-        return settings
-
     cfg = settings.model_copy(deep=True)
-    if requested == cfg.cloud.model:
-        cfg.model.provider = "cloud"
-    else:
-        cfg.model.provider = "ollama"
-    cfg.model.name = requested
+    cfg.model.provider = "ollama"
+    cfg.model.name = requested or _configured_model_name(cfg)
     return cfg
 
 
@@ -151,53 +142,8 @@ def _run_pipeline_answer(pipeline: RagPipeline, question: str):
 
 
 def _available_models() -> List[str]:
-    ollama_models = [m for m in _list_ollama_models() if _is_chat_model_name(m)]
-
-    # Always expose the configured runtime model even if model discovery fails.
-    candidates: List[str] = [_configured_model_name()]
-    if settings.cloud.model and settings.cloud.model != "best-model":
-        candidates.append(settings.cloud.model.strip())
-
-    # Expose installed Ollama chat models to enable multi-model selection from Open WebUI.
-    candidates.extend(ollama_models)
-
-    deduped: List[str] = []
-    seen = set()
-    for model in candidates:
-        normalized = model.strip()
-        if not normalized or normalized in seen:
-            continue
-        seen.add(normalized)
-        deduped.append(normalized)
-    return deduped
-
-
-def _list_ollama_models() -> List[str]:
-    try:
-        resp = requests.get(
-            f"{settings.ollama.base_url.rstrip('/')}/api/tags",
-            timeout=min(settings.ollama.timeout_s, 10),
-        )
-        resp.raise_for_status()
-        payload = resp.json()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Unable to list Ollama models from %s: %s", settings.ollama.base_url, exc)
-        return []
-
-    models = payload.get("models", [])
-    names: List[str] = []
-    for item in models:
-        if not isinstance(item, dict):
-            continue
-        name = item.get("name") or item.get("model")
-        if isinstance(name, str):
-            names.append(name)
-    return names
-
-
-def _is_chat_model_name(name: str) -> bool:
-    lowered = name.lower()
-    return "embed" not in lowered and "embedding" not in lowered
+    model = _configured_model_name()
+    return [model] if model else []
 
 
 @app.get("/health")

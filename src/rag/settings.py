@@ -34,7 +34,7 @@ class RagConfig(BaseModel):
     chunk_size: int = 900
     chunk_overlap: int = 180
     min_score: float = 0.0
-    use_cloud_first: bool = True
+    use_cloud_first: bool = False
     fallback_to_ollama: bool = True
 
 

@@ -14,6 +14,11 @@ FORCE_REINDEX="${FORCE_REINDEX:-0}"
 echo "[rhel7] Activating API venv"
 source "${API_VENV}/bin/activate"
 
+if ! python -c "import rag, uvicorn" >/dev/null 2>&1; then
+  echo "[rhel7] Missing API dependencies in ${API_VENV}. Installing project package..."
+  pip install -e "${PROJECT_DIR}" --no-build-isolation
+fi
+
 export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://localhost:11434}"
 export MODEL_PROVIDER=ollama
 export MODEL_NAME="${MODEL_NAME}"
