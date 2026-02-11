@@ -3,16 +3,17 @@
 Fast, minimal Retrieval-Augmented Generation stack with:
 - Ollama for embeddings + local/fallback LLM
 - Optional cloud LLM adapter
-- FastAPI backend exposing both native and OpenAI-compatible endpoints (with streaming)
-- Open WebUI compose file wired to the backend
+- FastAPI backend exposing native and OpenAI-compatible endpoints (with streaming)
+- Open WebUI supported (run separately; no Docker required)
 
 ## Quickstart
 ```bash
 cd /Users/jean/IdeaProjects/LLM-RAG
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -U pip
-pip install -e .          # offline-friendly (setuptools)
+pip install -e .                 # offline-friendly (setuptools)
+./scripts/prepare_ollama.sh      # pull chat + embedding models if missing
 ```
 
 Configure (env preferred):
@@ -27,6 +28,13 @@ export OLLAMA_BASE_URL=http://localhost:11434
 export MODEL_PROVIDER=ollama
 export MODEL_NAME=qwen2.5:1.5b   # or any installed chat model
 python scripts/run_api.py        # listens on :8000
+```
+One-liner “quick & dirty” runners:
+```bash
+./scripts/run_quick_mac.sh        # macOS
+# or
+./scripts/run_quick_rhel7.sh      # RHEL 7.9
+# add FORCE_REINDEX=1 to rebuild the index
 ```
 
 ## Endpoints
@@ -48,19 +56,26 @@ curl -N -X POST http://localhost:8000/v1/chat/completions \
   -d '{"model":"qwen2.5:1.5b","stream":true,"messages":[{"role":"user","content":"Explain X"}]}'
 ```
 
-## Open WebUI
+## Open WebUI (no Docker)
+- Needs Python >=3.11 in a separate venv.
+- Example:
 ```bash
-# Start Ollama + Open WebUI (expects API on host:8000)
-./scripts/compose.sh -f docker-compose.open-webui.yml up -d
+python3.11 -m venv ~/openwebui-venv
+source ~/openwebui-venv/bin/activate
+pip install --upgrade pip
+pip install open-webui
+export OPENAI_API_BASE_URL=http://localhost:8000/v1
+export OPENAI_API_KEY=local-rag
+open-webui serve --host 0.0.0.0 --port 3000
 ```
-- Choose the model exposed by `/v1/models` (e.g., `qwen2.5:1.5b`).
-- Ensure “Stream response” is enabled in UI; API already streams.
+- In the UI, pick any model from `/v1/models` (e.g., `qwen2.5:1.5b`) and enable “Stream response”.
 
 ## Data ingestion
 ```bash
 python scripts/ingest.py          # reads data/raw, builds Chroma index
 make reindex                      # full rebuild
 ```
+The ingester pings Ollama first; ensure `ollama serve` is running and `nomic-embed-text` is pulled.
 Supports PDF, Markdown, HTML, XML/JSON/YAML, and plain text. Documents are chunked word-wise.
 
 ## Project layout (short)
@@ -74,5 +89,4 @@ tests/             unit tests (loaders, settings, pipeline)
 ## Notes
 - Default embeddings: `nomic-embed-text` (Ollama).
 - Set `MODEL_NAME` to an installed chat model in Ollama (`ollama list`).
-- If running inside Docker, Open WebUI reaches host API via `host.docker.internal:8000`.
 - Streaming headers disable proxy buffering (`X-Accel-Buffering: no`) to keep token flow live.

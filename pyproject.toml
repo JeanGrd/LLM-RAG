@@ -7,10 +7,10 @@ name = "llm-rag"
 version = "0.1.0"
 description = "Bilingual (FR/EN) RAG system skeleton with cloud LLM + local Ollama embeddings/fallback."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
-  { name = "Jean", email = "" }
+  { name = "Jean", email = "jean@example.com" }
 ]
 keywords = ["rag", "ollama", "llm", "retrieval", "embeddings"]
 

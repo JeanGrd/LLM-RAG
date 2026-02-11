@@ -100,6 +100,14 @@ class RagPipeline:
             results = [r for r in results if r.score >= self.settings.rag.min_score]
         results = self._rerank_results(results, question)
         results = results[: self.settings.rag.top_k]
+        if not results:
+            return RagResponse(
+                answer="I don't know based on the indexed documents.",
+                sources=[],
+                model=self._get_model_name(self.settings.primary_provider()),
+                used_fallback=False,
+            )
+
         context = self._build_context(results)
         prompt = USER_PROMPT_TEMPLATE.format(question=question, context=context)
 
@@ -133,6 +141,12 @@ class RagPipeline:
             results = [r for r in results if r.score >= self.settings.rag.min_score]
         results = self._rerank_results(results, question)
         results = results[: self.settings.rag.top_k]
+        if not results:
+            # Mirror non-streaming behavior to avoid hallucinations when the index is empty.
+            def no_context() -> Iterable[str]:
+                yield "I don't know based on the indexed documents."
+
+            return no_context()
         context = self._build_context(results)
         prompt = USER_PROMPT_TEMPLATE.format(question=question, context=context)
 

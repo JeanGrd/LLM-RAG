@@ -50,6 +50,16 @@ def main() -> None:
     data_dir = Path(args.data_dir or settings.paths.data_dir) / "raw"
     data_dir.mkdir(parents=True, exist_ok=True)
 
+    # Quick readiness probe so we fail fast if Ollama isn't running.
+    try:
+        resp = requests.get(f"{settings.ollama.base_url}/api/tags", timeout=5)
+        resp.raise_for_status()
+    except Exception as exc:  # noqa: BLE001
+        raise SystemExit(
+            f"Ollama not reachable at {settings.ollama.base_url}. "
+            "Start it first: `ollama serve` (or ensure the service is up)."
+        ) from exc
+
     embedder = OllamaEmbeddings(
         base_url=settings.ollama.base_url,
         model=settings.ollama.embed_model,
