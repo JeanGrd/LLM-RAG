@@ -24,6 +24,23 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="LLM-RAG", version="0.1.0")
 
 
+@app.middleware("http")
+async def log_timing(request, call_next):
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.info(
+            "HTTP %s %s -> %s in %.1f ms",
+            request.method,
+            request.url.path,
+            getattr(getattr(response, "status_code", None), "__int__", lambda: None)(),
+            elapsed_ms,
+        )
+
+
 class QueryRequest(BaseModel):
     question: str
 
@@ -90,14 +107,23 @@ def get_pipeline() -> RagPipeline:
 
 def _configured_model_name(current: Optional[Settings] = None) -> str:
     cfg = current or settings
-    return (cfg.model.name or cfg.ollama.llm_model).strip()
+    model = (cfg.ollama.llm_model or "").strip()
+    if model:
+        return model
+    # If no default configured, signal clearly.
+    raise HTTPException(
+        status_code=400,
+        detail="No default model configured. Set ollama.llm_model or pass 'model' in the request.",
+    )
 
 
 def _build_settings_for_model(model_name: str) -> Settings:
-    requested = model_name.strip()
+    requested = (model_name or "").strip()
     cfg = settings.model_copy(deep=True)
-    cfg.model.provider = "ollama"
-    cfg.model.name = requested or _configured_model_name(cfg)
+    if requested:
+        cfg.ollama.llm_model = requested
+    else:
+        cfg.ollama.llm_model = _configured_model_name(cfg)
     return cfg
 
 
@@ -142,17 +168,61 @@ def _run_pipeline_answer(pipeline: RagPipeline, question: str):
 
 
 def _available_models() -> List[str]:
-    model = _configured_model_name()
-    return [model] if model else []
+    candidates: List[str] = []
+    try:
+        candidates.append(_configured_model_name())
+    except HTTPException:
+        pass
+    candidates.extend(_list_ollama_models())
+    deduped: List[str] = []
+    seen = set()
+    for model in candidates:
+        normalized = model.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(normalized)
+    return deduped
+
+
+def _list_ollama_models() -> List[str]:
+    try:
+        resp = requests.get(
+            f"{settings.ollama.base_url.rstrip('/')}/api/tags",
+            timeout=min(settings.ollama.timeout_s, 10),
+        )
+        resp.raise_for_status()
+        payload = resp.json()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Unable to list Ollama models from %s: %s", settings.ollama.base_url, exc)
+        return []
+
+    names: List[str] = []
+    for item in payload.get("models", []):
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name") or item.get("model")
+        if isinstance(name, str) and _is_chat_model_name(name):
+            names.append(name)
+    return names
+
+
+def _is_chat_model_name(name: str) -> bool:
+    lowered = name.lower()
+    return "embed" not in lowered and "embedding" not in lowered
 
 
 @app.get("/health")
 def health() -> dict:
     primary_provider = settings.primary_provider()
+    try:
+        model_name = _configured_model_name()
+    except HTTPException:
+        model_name = ""
     return {
         "status": "ok",
         "provider": primary_provider,
-        "model": _configured_model_name(),
+        "model": model_name,
         "available_models": _available_models(),
     }
 
@@ -160,6 +230,11 @@ def health() -> dict:
 @app.post("/query", response_model=QueryResponse)
 def query(req: QueryRequest) -> QueryResponse:
     logger.info("RAG query endpoint called")
+    if not (settings.ollama.llm_model or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail="No default model configured. Set ollama.llm_model (or OLLAMA_LLM_MODEL) or use /v1/chat/completions with an explicit model.",
+        )
     resp = _run_pipeline_answer(get_pipeline(), req.question)
     sources = [
         SourceItem(doc_id=s.doc_id, score=s.score, metadata=s.metadata) for s in resp.sources

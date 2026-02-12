@@ -2,11 +2,10 @@
 
 ## Overview
 
-The system follows a classic RAG pipeline with two model planes:
-- Cloud LLM for generation (primary).
-- Local Ollama for embeddings and as a fallback LLM.
-
-Primary generation provider and model can be selected from config (`model.provider` and `model.name`).
+The system follows a classic local RAG pipeline:
+- Ollama for generation.
+- Ollama embeddings for retrieval.
+- ChromaDB local persistent vector index.
 
 ## Data Flow
 
@@ -23,8 +22,7 @@ Primary generation provider and model can be selected from config (`model.provid
 
 3. Generation
    - Prompt built with retrieved context.
-   - Cloud LLM called first.
-   - If cloud fails or disabled, Ollama LLM is used.
+   - Ollama chat model generates the response from retrieved context.
 
 ## Modules
 
@@ -32,7 +30,7 @@ Primary generation provider and model can be selected from config (`model.provid
 - `rag/text/` normalization + chunking.
 - `rag/embeddings/` Ollama client.
 - `rag/vectorstore/` Chroma adapter (swapable).
-- `rag/llm/` cloud + Ollama adapters.
+- `rag/llm/` Ollama adapter.
 - `rag/rag/` orchestration and prompts.
 - `rag/api/` FastAPI service.
   - Native endpoint: `/query`

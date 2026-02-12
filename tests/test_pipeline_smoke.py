@@ -28,6 +28,14 @@ class DummyVectorStore(VectorStore):
         ]
 
 
+class EmptyVectorStore(VectorStore):
+    def add(self, documents, embeddings):
+        return None
+
+    def query(self, query_embedding, top_k):
+        return []
+
+
 class DummyLLM(LLM):
     def generate(self, prompt, system_prompt=None):
         return "ok"
@@ -51,25 +59,21 @@ def test_pipeline_answer():
     pipeline = RagPipeline(
         embeddings=DummyEmbeddings(),
         vectorstore=DummyVectorStore(),
-        llm_cloud=DummyLLM(),
         llm_ollama=DummyLLM(),
         settings=settings,
     )
     resp = pipeline.answer("hello")
     assert resp.answer == "ok"
     assert resp.sources
+    assert resp.used_fallback is False
 
 
-def test_pipeline_uses_configured_primary_provider():
-    settings = Settings(
-        model={"provider": "ollama"},
-    )
-    cloud = RecorderLLM("cloud-model")
+def test_pipeline_uses_configured_model_override():
+    settings = Settings(ollama={"llm_model": "qwen2.5:1.5b"})
     ollama = RecorderLLM("ollama-model")
     pipeline = RagPipeline(
         embeddings=DummyEmbeddings(),
         vectorstore=DummyVectorStore(),
-        llm_cloud=cloud,
         llm_ollama=ollama,
         settings=settings,
     )
@@ -80,62 +84,30 @@ def test_pipeline_uses_configured_primary_provider():
     assert resp.model == "ollama-model"
     assert resp.used_fallback is False
     assert ollama.calls == 1
-    assert cloud.calls == 0
 
 
-def test_pipeline_fallbacks_to_other_provider_on_failure():
-    settings = Settings(
-        model={"provider": "cloud"},
-        rag={"fallback_to_ollama": True},
-    )
-    cloud = RecorderLLM("cloud-model", should_fail=True)
-    ollama = RecorderLLM("ollama-model")
+def test_pipeline_raises_when_ollama_fails():
+    settings = Settings()
+    ollama = RecorderLLM("ollama-model", should_fail=True)
     pipeline = RagPipeline(
         embeddings=DummyEmbeddings(),
         vectorstore=DummyVectorStore(),
-        llm_cloud=cloud,
         llm_ollama=ollama,
         settings=settings,
     )
 
-    resp = pipeline.answer("hello")
-
-    assert resp.answer == "ok:ollama-model"
-    assert resp.model == "ollama-model"
-    assert resp.used_fallback is True
-    assert cloud.calls == 1
-    assert ollama.calls == 1
+    with pytest.raises(RuntimeError):
+        pipeline.answer("hello")
 
 
-def test_pipeline_raises_when_fallback_disabled():
-    settings = Settings(
-        model={"provider": "cloud"},
-        rag={"fallback_to_ollama": False},
-    )
+def test_pipeline_returns_unknown_when_no_results():
+    settings = Settings()
     pipeline = RagPipeline(
         embeddings=DummyEmbeddings(),
-        vectorstore=DummyVectorStore(),
-        llm_cloud=RecorderLLM("cloud-model", should_fail=True),
+        vectorstore=EmptyVectorStore(),
         llm_ollama=RecorderLLM("ollama-model"),
         settings=settings,
     )
-
-    with pytest.raises(RuntimeError):
-        pipeline.answer("hello")
-
-
-def test_pipeline_does_not_fallback_when_primary_is_ollama():
-    settings = Settings(
-        model={"provider": "ollama"},
-        rag={"fallback_to_ollama": True},
-    )
-    pipeline = RagPipeline(
-        embeddings=DummyEmbeddings(),
-        vectorstore=DummyVectorStore(),
-        llm_cloud=RecorderLLM("cloud-model"),
-        llm_ollama=RecorderLLM("ollama-model", should_fail=True),
-        settings=settings,
-    )
-
-    with pytest.raises(RuntimeError):
-        pipeline.answer("hello")
+    resp = pipeline.answer("hello")
+    assert resp.answer == "I don't know based on the indexed documents."
+    assert resp.sources == []

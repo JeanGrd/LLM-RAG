@@ -9,12 +9,17 @@ Single-host deployment with:
 ## 1) Install Python 3.11 and virtualenv
 ```bash
 cd /opt/LLM-RAG
-sudo ./scripts/install_python_311_rhel7.sh
+sudo ./scripts/setup/install_python_311_rhel7.sh
 source .venv/bin/activate
 pip install -U pip
 pip install -e .
 cp .env.example .env
 ```
+
+Config precedence:
+- `config/settings.yaml` provides defaults
+- `.env` overrides only what you set
+- keep `.env` minimal (do not duplicate every key)
 
 ## 2) Start Ollama and pull required models
 ```bash
@@ -25,7 +30,17 @@ In another shell:
 ```bash
 cd /opt/LLM-RAG
 source .venv/bin/activate
-./scripts/prepare_ollama.sh
+./scripts/setup/prepare_ollama.sh
+```
+
+You can install additional chat models at any time:
+```bash
+ollama pull <model-name>
+```
+
+To ensure one specific chat model is present:
+```bash
+CHAT_MODEL=qwen2.5:1.5b ./scripts/setup/prepare_ollama.sh
 ```
 
 ## 3) Build or rebuild the vector index
@@ -40,9 +55,8 @@ make reindex
 cd /opt/LLM-RAG
 source .venv/bin/activate
 export OLLAMA_BASE_URL=http://localhost:11434
-export MODEL_PROVIDER=ollama
-export MODEL_NAME=qwen2.5:1.5b
-HOST=0.0.0.0 PORT=8000 python scripts/run_api.py
+export OLLAMA_LLM_MODEL=qwen2.5:1.5b
+HOST=0.0.0.0 PORT=8000 python scripts/app/run_api.py
 ```
 
 ## 5) Verify
@@ -59,3 +73,13 @@ Configure one connection only:
 
 Do not enable direct Ollama integration in Open WebUI for this setup.
 
+## Quick commands
+Backend (auto-check deps, prepare models, index if needed):
+```bash
+make quick-backend
+```
+
+Open WebUI (auto-venv + fixed backend URL defaults):
+```bash
+make quick-openwebui
+```

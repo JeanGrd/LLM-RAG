@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Install Python 3.11 on RHEL/CentOS 7.x, create project venv in repo/.venv.
-# Usage: sudo ./scripts/install_python_311_rhel7.sh
+# Usage: sudo ./scripts/setup/install_python_311_rhel7.sh
 set -euo pipefail
 
 PY_VERSION=3.11.8
 PY_PREFIX=/usr/local
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 VENV_DIR="${PROJECT_DIR}/.venv"
 
 echo "[+] Installing build dependencies (yum)"

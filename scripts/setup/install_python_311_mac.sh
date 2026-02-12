@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Install Python 3.11 via Homebrew on macOS and create project venv in repo/.venv.
-# Usage: ./scripts/install_python_311_mac.sh
+# Usage: ./scripts/setup/install_python_311_mac.sh
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 VENV_DIR="${PROJECT_DIR}/.venv"
 
 if ! command -v brew >/dev/null 2>&1; then

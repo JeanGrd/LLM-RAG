@@ -5,11 +5,8 @@ paths:
   data_dir: ./data
   index_dir: ./data/indices
 
-model:
-  provider: ollama
-  name: qwen2.5:1.5b
-
 ollama:
+  llm_model: qwen2.5:1.5b
   embed_model: nomic-embed-text
 
 rag:
@@ -17,5 +14,3 @@ rag:
   chunk_size: 320
   chunk_overlap: 64
   min_score: 0.0
-  use_cloud_first: false
-  fallback_to_ollama: true

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Iterable, List, Optional
+from typing import Iterable, List
 
 from ..embeddings import Embeddings
 from ..llm import LLM
@@ -21,13 +21,11 @@ class RagPipeline:
         self,
         embeddings: Embeddings,
         vectorstore: VectorStore,
-        llm_cloud: LLM,
         llm_ollama: LLM,
         settings: Settings,
     ) -> None:
         self.embeddings = embeddings
         self.vectorstore = vectorstore
-        self.llm_cloud = llm_cloud
         self.llm_ollama = llm_ollama
         self.settings = settings
 
@@ -71,28 +69,14 @@ class RagPipeline:
             reverse=True,
         )
 
-    def _get_llm(self, provider: str) -> LLM:
-        if provider == "cloud":
-            return self.llm_cloud
-        return self.llm_ollama
+    def _model_name(self) -> str:
+        return getattr(self.llm_ollama, "model", "ollama")
 
-    def _get_model_name(self, provider: str) -> str:
-        llm = self._get_llm(provider)
-        return getattr(llm, "model", provider)
+    def _generate(self, prompt: str) -> str:
+        return self.llm_ollama.generate(prompt, system_prompt=SYSTEM_PROMPT)
 
-    def _fallback_provider(self, provider: str) -> Optional[str]:
-        # Keep backward compatibility: fallback path is cloud -> ollama only.
-        if provider == "cloud":
-            return "ollama"
-        return None
-
-    def _generate(self, provider: str, prompt: str) -> str:
-        llm = self._get_llm(provider)
-        return llm.generate(prompt, system_prompt=SYSTEM_PROMPT)
-
-    def _generate_stream(self, provider: str, prompt: str) -> Iterable[str]:
-        llm = self._get_llm(provider)
-        return llm.stream(prompt, system_prompt=SYSTEM_PROMPT)
+    def _generate_stream(self, prompt: str) -> Iterable[str]:
+        return self.llm_ollama.stream(prompt, system_prompt=SYSTEM_PROMPT)
 
     def answer(self, question: str) -> RagResponse:
         results = self.retrieve(question)
@@ -104,32 +88,23 @@ class RagPipeline:
             return RagResponse(
                 answer="I don't know based on the indexed documents.",
                 sources=[],
-                model=self._get_model_name(self.settings.primary_provider()),
+                model=self._model_name(),
                 used_fallback=False,
             )
 
         context = self._build_context(results)
         prompt = USER_PROMPT_TEMPLATE.format(question=question, context=context)
-
-        primary_provider = self.settings.primary_provider()
-        used_fallback = False
-        model_name = self._get_model_name(primary_provider)
         try:
-            answer = self._generate(primary_provider, prompt)
+            answer = self._generate(prompt)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("%s LLM failed: %s", primary_provider, exc)
-            fallback_provider = self._fallback_provider(primary_provider)
-            if not self.settings.rag.fallback_to_ollama or fallback_provider is None:
-                raise
-            answer = self._generate(fallback_provider, prompt)
-            used_fallback = True
-            model_name = self._get_model_name(fallback_provider)
+            logger.warning("Ollama LLM failed: %s", exc)
+            raise
 
         return RagResponse(
             answer=answer,
             sources=results,
-            model=model_name,
-            used_fallback=used_fallback,
+            model=self._model_name(),
+            used_fallback=False,
         )
 
     def answer_stream(self, question: str) -> Iterable[str]:
@@ -149,15 +124,8 @@ class RagPipeline:
             return no_context()
         context = self._build_context(results)
         prompt = USER_PROMPT_TEMPLATE.format(question=question, context=context)
-
-        primary_provider = self.settings.primary_provider()
-        model_name = self._get_model_name(primary_provider)
         try:
-            return self._generate_stream(primary_provider, prompt)
+            return self._generate_stream(prompt)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("%s LLM failed in stream mode: %s", primary_provider, exc)
-            fallback_provider = self._fallback_provider(primary_provider)
-            if not self.settings.rag.fallback_to_ollama or fallback_provider is None:
-                raise
-            model_name = self._get_model_name(fallback_provider)
-            return self._generate_stream(fallback_provider, prompt)
+            logger.warning("Ollama LLM failed in stream mode: %s", exc)
+            raise

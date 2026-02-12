@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "llm-rag"
 version = "0.1.0"
-description = "Bilingual (FR/EN) RAG system skeleton with cloud LLM + local Ollama embeddings/fallback."
+description = "Local bilingual (FR/EN) RAG backend with Ollama + Chroma."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -26,7 +26,8 @@ dependencies = [
   "markdown>=3.5.0",
   "pyyaml>=6.0.1",
   "python-dotenv>=1.0.0",
-  "tqdm>=4.66.0"
+  "tqdm>=4.66.0",
+  "pysqlite3-binary>=0.5.4; platform_system == 'Linux'"
 ]
 
 [project.optional-dependencies]

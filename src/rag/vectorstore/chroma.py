@@ -1,6 +1,31 @@
 from __future__ import annotations
 
+import sqlite3
+import sys
 from typing import Iterable, List
+
+MIN_SQLITE_VERSION = (3, 35, 0)
+
+
+def _ensure_sqlite_compat() -> None:
+    """
+    Chroma requires sqlite >= 3.35. On older distros (e.g. RHEL 7),
+    swap stdlib sqlite3 with pysqlite3 when available.
+    """
+    if sqlite3.sqlite_version_info >= MIN_SQLITE_VERSION:
+        return
+    try:
+        import pysqlite3  # type: ignore[import-not-found]
+    except ImportError as exc:
+        version = sqlite3.sqlite_version
+        raise RuntimeError(
+            f"Detected sqlite {version}, but Chroma requires >= 3.35. "
+            "Install fallback in the active venv: `pip install pysqlite3-binary`."
+        ) from exc
+    sys.modules["sqlite3"] = pysqlite3
+
+
+_ensure_sqlite_compat()
 
 try:
     import chromadb
@@ -15,7 +40,9 @@ class ChromaVectorStore(VectorStore):
     def __init__(self, index_dir: str, collection_name: str = "rag"):
         if chromadb is None:
             raise ImportError("chromadb is required for ChromaVectorStore")
-        self.client = chromadb.PersistentClient(path=index_dir)
+        # Disable outbound telemetry by default (no PostHog calls).
+        client_settings = chromadb.config.Settings(anonymized_telemetry=False)
+        self.client = chromadb.PersistentClient(path=index_dir, settings=client_settings)
         self.collection = self.client.get_or_create_collection(name=collection_name)
 
     def add(self, documents: Iterable[Document], embeddings: List[List[float]]) -> None:
