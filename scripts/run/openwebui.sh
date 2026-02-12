@@ -2,7 +2,19 @@
 # Quick runner for Open WebUI connected to local RAG backend (/v1).
 set -euo pipefail
 
-OPENWEBUI_VENV="${OPENWEBUI_VENV:-$HOME/openwebui-venv}"
+# Resolve Open WebUI venv:
+# 1) explicit OPENWEBUI_VENV if provided
+# 2) project-local .openwebui-venv
+# 3) fallback to $HOME/openwebui-venv
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+if [ -z "${OPENWEBUI_VENV:-}" ]; then
+  if [ -d "${PROJECT_DIR}/.openwebui-venv" ]; then
+    OPENWEBUI_VENV="${PROJECT_DIR}/.openwebui-venv"
+  else
+    OPENWEBUI_VENV="${HOME}/openwebui-venv"
+  fi
+fi
+
 OPENWEBUI_HOST="${OPENWEBUI_HOST:-0.0.0.0}"
 OPENWEBUI_PORT="${OPENWEBUI_PORT:-3000}"
 OPENAI_API_BASE_URL="${OPENAI_API_BASE_URL:-http://localhost:8000/v1}"
