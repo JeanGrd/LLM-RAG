@@ -1,8 +1,8 @@
-# Deployment (RHEL 7.9)
+# Deployment (RHEL 7.9) with llama.cpp
 
 ## Scope
 Single-host deployment with:
-- native Ollama
+- llama.cpp server (OpenAI-compatible HTTP API)
 - this FastAPI RAG backend
 - optional Open WebUI pointing only to `http://<host>:8000/v1`
 
@@ -13,7 +13,7 @@ sudo ./scripts/setup/install_python_311_rhel7.sh
 source .venv/bin/activate
 pip install -U pip
 pip install -e .
-cp .env.example .env
+cp .env .env.local  # optional personal copy
 ```
 
 Config precedence:
@@ -21,47 +21,37 @@ Config precedence:
 - `.env` overrides only what you set
 - keep `.env` minimal (do not duplicate every key)
 
-## 2) Start Ollama and pull required models
+## 2) Start llama.cpp server
 ```bash
-ollama serve
+llama-server \
+  --model /opt/models/your-chat-model.gguf \
+  --host 0.0.0.0 --port 8080 \
+  --api-key "" \
+  --timeout 120
 ```
 
-In another shell:
-```bash
-cd /opt/LLM-RAG
-source .venv/bin/activate
-./scripts/setup/prepare_ollama.sh
-```
-
-You can install additional chat models at any time:
-```bash
-ollama pull <model-name>
-```
-
-To ensure one specific chat model is present:
-```bash
-CHAT_MODEL=qwen2.5:1.5b ./scripts/setup/prepare_ollama.sh
-```
+If you have additional remote endpoints, set `LLAMA_CPP_RPC_TARGETS`.
 
 ## 3) Build or rebuild the vector index
 ```bash
 cd /opt/LLM-RAG
 source .venv/bin/activate
-make reindex
+make reingest
 ```
 
 ## 4) Run API
 ```bash
 cd /opt/LLM-RAG
 source .venv/bin/activate
-export OLLAMA_BASE_URL=http://localhost:11434
-export OLLAMA_LLM_MODEL=qwen2.5:1.5b
+export LLAMA_CPP_BASE_URL=http://127.0.0.1:8080
+# Use the exact id returned by: curl http://127.0.0.1:8080/v1/models
+export LLAMA_CPP_LLM_MODEL=your-chat-model.gguf
 HOST=0.0.0.0 PORT=8000 python scripts/app/run_api.py
 ```
 
 ## 5) Verify
 ```bash
-curl -X POST http://localhost:8000/query \
+curl -X POST http://127.0.0.1:8000/query \
   -H 'Content-Type: application/json' \
   -d '{"question":"Parle moi de Moko"}'
 ```
@@ -71,15 +61,15 @@ Configure one connection only:
 - Base URL: `http://<host>:8000/v1`
 - API key: any non-empty value
 
-Do not enable direct Ollama integration in Open WebUI for this setup.
+Do not point Open WebUI directly at the llama.cpp server when using this backend.
 
 ## Quick commands
-Backend (auto-check deps, prepare models, index if needed):
+Backend (auto-check deps, index if needed):
 ```bash
-make quick-backend
+make backend
 ```
 
 Open WebUI (auto-venv + fixed backend URL defaults):
 ```bash
-make quick-openwebui
+make openwebui
 ```

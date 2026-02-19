@@ -5,14 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "llm-rag"
 version = "0.1.0"
-description = "Local bilingual (FR/EN) RAG backend with Ollama + Chroma."
+description = "Local bilingual (FR/EN) RAG backend with llama.cpp + Chroma."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 authors = [
   { name = "Jean", email = "jean@example.com" }
 ]
-keywords = ["rag", "ollama", "llm", "retrieval", "embeddings"]
+keywords = ["rag", "llama.cpp", "llm", "retrieval", "embeddings"]
 
 dependencies = [
   "fastapi>=0.110.0",

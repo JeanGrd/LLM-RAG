@@ -9,16 +9,29 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+def _env_file_path() -> str:
+    return os.getenv("RAG_ENV_FILE", ".env")
+
+
 class Paths(BaseModel):
     data_dir: str = "./data"
     index_dir: str = "./data/indices"
 
 
-class OllamaConfig(BaseModel):
-    base_url: str = "http://localhost:11434"
-    embed_model: str = "nomic-embed-text"
+class LlamaCppConfig(BaseModel):
+    base_url: str = "http://127.0.0.1:8080"
     llm_model: str = ""  # optional default; if empty, client must pass model per request
+    embed_model: str = ""  # falls back to llm_model when empty
     timeout_s: int = 120
+    rpc_targets: list[str] = Field(default_factory=list)
+
+    def resolved_rpc_targets(self) -> list[str]:
+        targets: list[str] = []
+        for item in self.rpc_targets:
+            normalized = item.strip()
+            if normalized and normalized not in targets:
+                targets.append(normalized)
+        return targets
 
 
 class RagConfig(BaseModel):
@@ -55,10 +68,10 @@ def yaml_config_settings_source() -> Dict[str, Any]:
 
 def legacy_env_settings_source() -> Dict[str, Any]:
     """
-    Support flat env vars like OLLAMA_BASE_URL in addition to nested OLLAMA__BASE_URL.
+    Support flat env vars like LLAMA_CPP_BASE_URL in addition to nested LLAMA_CPP__BASE_URL.
     Reads from both os.environ and .env (without exporting to os.environ).
     """
-    env_file_vals = dotenv_values(".env")
+    env_file_vals = dotenv_values(_env_file_path())
     env = {**env_file_vals, **os.environ}
     data: Dict[str, Any] = {}
 
@@ -71,11 +84,28 @@ def legacy_env_settings_source() -> Dict[str, Any]:
             cur = cur.setdefault(part, {})
         cur[parts[-1]] = value
 
-    set_nested("ollama.base_url", env.get("OLLAMA_BASE_URL"))
-    set_nested("ollama.embed_model", env.get("OLLAMA_EMBED_MODEL"))
-    # MODEL_NAME is kept as backward-compatible alias for OLLAMA_LLM_MODEL.
-    set_nested("ollama.llm_model", env.get("OLLAMA_LLM_MODEL") or env.get("MODEL_NAME"))
-    set_nested("ollama.timeout_s", env.get("OLLAMA_TIMEOUT_S"))
+    def _split_list(raw: Any) -> list[str]:
+        if raw is None:
+            return []
+        if isinstance(raw, str):
+            parts: list[str] = []
+            for chunk in raw.replace(";", ",").split(","):
+                parts.extend(chunk.split())
+            return [p.strip() for p in parts if p.strip()]
+        if isinstance(raw, (list, tuple, set)):
+            return [str(item).strip() for item in raw if str(item).strip()]
+        return []
+
+    set_nested("llama_cpp.base_url", env.get("LLAMA_CPP_BASE_URL"))
+    set_nested("llama_cpp.embed_model", env.get("LLAMA_CPP_EMBED_MODEL"))
+    set_nested("llama_cpp.llm_model", env.get("LLAMA_CPP_LLM_MODEL") or env.get("MODEL_NAME"))
+    set_nested("llama_cpp.timeout_s", env.get("LLAMA_CPP_TIMEOUT_S"))
+    rpc_targets = _split_list(env.get("LLAMA_CPP_RPC_TARGETS"))
+    if rpc_targets:
+        set_nested("llama_cpp.rpc_targets", rpc_targets)
+
+    set_nested("paths.data_dir", env.get("DATA_DIR"))
+    set_nested("paths.index_dir", env.get("INDEX_DIR"))
 
     set_nested("rag.top_k", _coerce_env_number(env.get("TOP_K")))
     set_nested("rag.chunk_size", _coerce_env_number(env.get("CHUNK_SIZE")))
@@ -92,12 +122,12 @@ class Settings(BaseSettings):
     app_env: str = "local"
     log_level: str = "INFO"
     paths: Paths = Field(default_factory=Paths)
-    ollama: OllamaConfig = Field(default_factory=OllamaConfig)
+    llama_cpp: LlamaCppConfig = Field(default_factory=LlamaCppConfig)
     rag: RagConfig = Field(default_factory=RagConfig)
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
-        env_file=".env",
+        env_file=_env_file_path(),
         extra="ignore",
     )
 
@@ -120,8 +150,8 @@ class Settings(BaseSettings):
             file_secret_settings,
         )
 
-    def primary_provider(self) -> Literal["ollama"]:
-        return "ollama"
+    def primary_provider(self) -> Literal["llama_cpp"]:
+        return "llama_cpp"
 
 
 def load_settings() -> Settings:

@@ -5,9 +5,12 @@ paths:
   data_dir: ./data
   index_dir: ./data/indices
 
-ollama:
-  llm_model: qwen2.5:1.5b
-  embed_model: nomic-embed-text
+llama_cpp:
+  base_url: http://127.0.0.1:8080
+  llm_model: ""  # recommended: set to the id returned by /v1/models
+  embed_model: ""  # optional; when empty, backend auto-picks an embedding model if available
+  timeout_s: 120
+  rpc_targets: []
 
 rag:
   top_k: 4

@@ -3,8 +3,8 @@
 ## Overview
 
 The system follows a classic local RAG pipeline:
-- Ollama for generation.
-- Ollama embeddings for retrieval.
+- llama.cpp for generation.
+- llama.cpp embeddings for retrieval.
 - ChromaDB local persistent vector index.
 
 ## Data Flow
@@ -13,24 +13,24 @@ The system follows a classic local RAG pipeline:
    - Sources: PDF + Markdown + HTML (Wiki exports).
    - Loaders extract text.
    - Text normalization + chunking.
-   - Embeddings computed with Ollama.
+   - Embeddings computed with llama.cpp.
    - Vectors stored in ChromaDB (local persistent store).
 
 2. Retrieval
-   - Query embedded with Ollama.
+   - Query embedded with llama.cpp.
    - Top-K vectors fetched from Chroma.
 
 3. Generation
    - Prompt built with retrieved context.
-   - Ollama chat model generates the response from retrieved context.
+   - llama.cpp chat model generates the response from retrieved context.
 
 ## Modules
 
 - `rag/loaders/` loaders for file types.
 - `rag/text/` normalization + chunking.
-- `rag/embeddings/` Ollama client.
+- `rag/embeddings/` llama.cpp client.
 - `rag/vectorstore/` Chroma adapter (swapable).
-- `rag/llm/` Ollama adapter.
+- `rag/llm/` llama.cpp adapter.
 - `rag/rag/` orchestration and prompts.
 - `rag/api/` FastAPI service.
   - Native endpoint: `/query`

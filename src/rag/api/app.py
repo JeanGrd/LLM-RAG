@@ -4,14 +4,23 @@ import json
 import logging
 import time
 from functools import lru_cache
+from itertools import chain
+from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 import requests
 
+from ..llama_cpp import (
+    build_endpoint_urls,
+    filter_chat_models,
+    is_embedding_model_name,
+    list_remote_models,
+    resolve_model_alias,
+)
 from ..logging import setup_logging
 from ..rag import RagPipeline
 from ..runtime import build_pipeline
@@ -24,9 +33,16 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="LLM-RAG", version="0.1.0")
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request, exc):  # noqa: ANN001
+    logger.exception("Unhandled API error on %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
 @app.middleware("http")
 async def log_timing(request, call_next):
     start = time.perf_counter()
+    response = None
     try:
         response = await call_next(request)
         return response
@@ -107,23 +123,31 @@ def get_pipeline() -> RagPipeline:
 
 def _configured_model_name(current: Optional[Settings] = None) -> str:
     cfg = current or settings
-    model = (cfg.ollama.llm_model or "").strip()
+    model = (cfg.llama_cpp.llm_model or "").strip()
     if model:
         return model
     # If no default configured, signal clearly.
     raise HTTPException(
         status_code=400,
-        detail="No default model configured. Set ollama.llm_model or pass 'model' in the request.",
+        detail=(
+            "No default model configured. "
+            "Set llama_cpp.llm_model or pass 'model' in the request."
+        ),
     )
+
+
+def _llm_base_url(current: Optional[Settings] = None) -> str:
+    cfg = current or settings
+    return cfg.llama_cpp.base_url
 
 
 def _build_settings_for_model(model_name: str) -> Settings:
     requested = (model_name or "").strip()
     cfg = settings.model_copy(deep=True)
     if requested:
-        cfg.ollama.llm_model = requested
+        cfg.llama_cpp.llm_model = requested
     else:
-        cfg.ollama.llm_model = _configured_model_name(cfg)
+        cfg.llama_cpp.llm_model = _configured_model_name(cfg)
     return cfg
 
 
@@ -144,72 +168,70 @@ def _extract_user_prompt(messages: List[OpenAIMessage]) -> str:
 def _run_pipeline_answer(pipeline: RagPipeline, question: str):
     try:
         return pipeline.answer(question)
-    except requests.exceptions.ReadTimeout as exc:
+    except Exception as exc:  # noqa: BLE001
+        _raise_pipeline_http_error(exc)
+
+
+def _raise_pipeline_http_error(exc: Exception) -> None:
+    if isinstance(exc, HTTPException):
+        raise exc
+    if isinstance(exc, ValueError):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if isinstance(exc, requests.exceptions.ReadTimeout):
         raise HTTPException(
             status_code=504,
             detail="LLM request timed out. Try a smaller model or retry.",
         ) from exc
-    except requests.exceptions.ConnectionError as exc:
+    if isinstance(exc, requests.exceptions.ConnectionError):
         raise HTTPException(
             status_code=503,
-            detail=f"Cannot reach Ollama at {settings.ollama.base_url}.",
+            detail=f"Cannot reach llama.cpp server at {_llm_base_url()}.",
         ) from exc
-    except requests.exceptions.HTTPError as exc:
+    if isinstance(exc, requests.exceptions.HTTPError):
         status = exc.response.status_code if exc.response is not None else "unknown"
+        if exc.response is not None and exc.response.status_code == 400:
+            detail = exc.response.text.strip()
+            if detail:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Upstream llama.cpp rejected the request: {detail}",
+                ) from exc
         raise HTTPException(
             status_code=502,
             detail=f"Upstream LLM HTTP error ({status}).",
         ) from exc
-    except HTTPException:
-        raise
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Unhandled pipeline error")
-        raise HTTPException(status_code=500, detail=f"RAG internal error: {exc}") from exc
+    logger.exception("Unhandled pipeline error")
+    raise HTTPException(status_code=500, detail=f"RAG internal error: {exc}") from exc
 
 
 def _available_models() -> List[str]:
+    endpoints = build_endpoint_urls(
+        _llm_base_url(),
+        settings.llama_cpp.resolved_rpc_targets(),
+    )
+    remote_models = list_remote_models(endpoints, settings.llama_cpp.timeout_s, logger)
+    if remote_models:
+        return filter_chat_models(remote_models)
+
+    # Fallback when upstream /v1/models is unavailable.
     candidates: List[str] = []
     try:
-        candidates.append(_configured_model_name())
+        configured = _configured_model_name()
+        basename = Path(configured).name
+        candidates.extend([basename, configured])
     except HTTPException:
         pass
-    candidates.extend(_list_ollama_models())
+
     deduped: List[str] = []
-    seen = set()
     for model in candidates:
-        normalized = model.strip()
-        if not normalized or normalized in seen:
-            continue
-        seen.add(normalized)
-        deduped.append(normalized)
+        normalized = (model or "").strip()
+        if normalized and normalized not in deduped and _is_chat_model_name(normalized):
+            deduped.append(normalized)
     return deduped
 
 
-def _list_ollama_models() -> List[str]:
-    try:
-        resp = requests.get(
-            f"{settings.ollama.base_url.rstrip('/')}/api/tags",
-            timeout=min(settings.ollama.timeout_s, 10),
-        )
-        resp.raise_for_status()
-        payload = resp.json()
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("Unable to list Ollama models from %s: %s", settings.ollama.base_url, exc)
-        return []
-
-    names: List[str] = []
-    for item in payload.get("models", []):
-        if not isinstance(item, dict):
-            continue
-        name = item.get("name") or item.get("model")
-        if isinstance(name, str) and _is_chat_model_name(name):
-            names.append(name)
-    return names
-
-
 def _is_chat_model_name(name: str) -> bool:
-    lowered = name.lower()
-    return "embed" not in lowered and "embedding" not in lowered
+    return not is_embedding_model_name(name)
 
 
 @app.get("/health")
@@ -230,10 +252,23 @@ def health() -> dict:
 @app.post("/query", response_model=QueryResponse)
 def query(req: QueryRequest) -> QueryResponse:
     logger.info("RAG query endpoint called")
-    if not (settings.ollama.llm_model or "").strip():
+    configured_model = (settings.llama_cpp.llm_model or "").strip()
+    if not configured_model:
         raise HTTPException(
             status_code=400,
-            detail="No default model configured. Set ollama.llm_model (or OLLAMA_LLM_MODEL) or use /v1/chat/completions with an explicit model.",
+            detail=(
+                "No default model configured. "
+                "Set llama_cpp.llm_model (or LLAMA_CPP_LLM_MODEL) "
+                "or use /v1/chat/completions with an explicit model."
+            ),
+        )
+    if is_embedding_model_name(configured_model):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Configured model '{configured_model}' looks like an embedding model. "
+                "Set llama_cpp.llm_model to a chat/instruct model."
+            ),
         )
     resp = _run_pipeline_answer(get_pipeline(), req.question)
     sources = [
@@ -256,19 +291,36 @@ def list_models() -> OpenAIModelsResponse:
 def openai_chat_completions(req: OpenAIChatRequest) -> OpenAIChatResponse:
     requested_model = (req.model or "").strip()
     available_models = _available_models()
-    if requested_model and requested_model not in available_models:
+    requested_model = resolve_model_alias(requested_model, available_models)
+    if requested_model and is_embedding_model_name(requested_model):
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported model '{requested_model}'. Available models: {', '.join(available_models)}",
+            detail=(
+                f"Model '{requested_model}' looks like an embedding model. "
+                "Choose a chat/instruct model."
+            ),
+        )
+    if requested_model and available_models and requested_model not in available_models:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unsupported model '{requested_model}'. "
+                f"Available models: {', '.join(available_models)}"
+            ),
         )
     logger.info("OpenAI-compatible endpoint called (stream=%s)", req.stream)
     question = _extract_user_prompt(req.messages)
 
     if req.stream:
         chat_id = f"chatcmpl-{uuid4().hex}"
-        pipeline = get_pipeline_for_model(requested_model)
-        stream_iter = pipeline.answer_stream(question)
-        model_name = _configured_model_name(pipeline.settings)
+        try:
+            pipeline = get_pipeline_for_model(requested_model)
+            raw_iter = iter(pipeline.answer_stream(question))
+            first_chunk = next(raw_iter, None)
+            model_name = _configured_model_name(pipeline.settings)
+        except Exception as exc:  # noqa: BLE001
+            _raise_pipeline_http_error(exc)
+        stream_iter = chain(([first_chunk] if first_chunk else []), raw_iter)
 
         def event_stream():
             # First chunk: send assistant role so some clients start rendering immediately.
@@ -287,21 +339,25 @@ def openai_chat_completions(req: OpenAIChatRequest) -> OpenAIChatResponse:
             }
             yield f"data: {json.dumps(role_payload)}\n\n"
 
-            for chunk in stream_iter:
-                payload = {
-                    "id": chat_id,
-                    "object": "chat.completion.chunk",
-                    "created": int(time.time()),
-                    "model": model_name,
-                    "choices": [
-                        {
-                            "index": 0,
-                            "delta": {"content": chunk},
-                            "finish_reason": None,
-                        }
-                    ],
-                }
-                yield f"data: {json.dumps(payload)}\n\n"
+            try:
+                for chunk in stream_iter:
+                    payload = {
+                        "id": chat_id,
+                        "object": "chat.completion.chunk",
+                        "created": int(time.time()),
+                        "model": model_name,
+                        "choices": [
+                            {
+                                "index": 0,
+                                "delta": {"content": chunk},
+                                "finish_reason": None,
+                            }
+                        ],
+                    }
+                    yield f"data: {json.dumps(payload)}\n\n"
+            except Exception as exc:  # noqa: BLE001
+                # Response has already started; log and close stream cleanly.
+                logger.warning("Streaming interrupted for model %s: %s", model_name, exc)
             yield (
                 "data: "
                 + json.dumps(
@@ -333,7 +389,10 @@ def openai_chat_completions(req: OpenAIChatRequest) -> OpenAIChatResponse:
             },
         )
 
-    pipeline = get_pipeline_for_model(requested_model)
+    try:
+        pipeline = get_pipeline_for_model(requested_model)
+    except Exception as exc:  # noqa: BLE001
+        _raise_pipeline_http_error(exc)
     result = _run_pipeline_answer(pipeline, question)
     return OpenAIChatResponse(
         id=f"chatcmpl-{uuid4().hex}",

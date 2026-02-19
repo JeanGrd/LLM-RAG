@@ -21,12 +21,12 @@ class RagPipeline:
         self,
         embeddings: Embeddings,
         vectorstore: VectorStore,
-        llm_ollama: LLM,
+        llm: LLM,
         settings: Settings,
     ) -> None:
         self.embeddings = embeddings
         self.vectorstore = vectorstore
-        self.llm_ollama = llm_ollama
+        self.llm = llm
         self.settings = settings
 
     def retrieve(self, question: str) -> List[RetrievalResult]:
@@ -70,26 +70,43 @@ class RagPipeline:
         )
 
     def _model_name(self) -> str:
-        return getattr(self.llm_ollama, "model", "ollama")
+        return getattr(self.llm, "model", "llama.cpp")
 
     def _generate(self, prompt: str) -> str:
-        return self.llm_ollama.generate(prompt, system_prompt=SYSTEM_PROMPT)
+        return self.llm.generate(prompt, system_prompt=SYSTEM_PROMPT)
 
     def _generate_stream(self, prompt: str) -> Iterable[str]:
-        return self.llm_ollama.stream(prompt, system_prompt=SYSTEM_PROMPT)
+        return self.llm.stream(prompt, system_prompt=SYSTEM_PROMPT)
+
+    def _answer_direct(self, question: str) -> str:
+        return self._generate(question)
+
+    def _stream_direct(self, question: str) -> Iterable[str]:
+        return self._generate_stream(question)
 
     def answer(self, question: str) -> RagResponse:
-        results = self.retrieve(question)
+        try:
+            results = self.retrieve(question)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Retrieval failed, using direct LLM response: %s", exc)
+            answer = self._answer_direct(question)
+            return RagResponse(
+                answer=answer,
+                sources=[],
+                model=self._model_name(),
+                used_fallback=True,
+            )
         if self.settings.rag.min_score > 0:
             results = [r for r in results if r.score >= self.settings.rag.min_score]
         results = self._rerank_results(results, question)
         results = results[: self.settings.rag.top_k]
         if not results:
+            answer = self._answer_direct(question)
             return RagResponse(
-                answer="I don't know based on the indexed documents.",
+                answer=answer,
                 sources=[],
                 model=self._model_name(),
-                used_fallback=False,
+                used_fallback=True,
             )
 
         context = self._build_context(results)
@@ -97,7 +114,7 @@ class RagPipeline:
         try:
             answer = self._generate(prompt)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Ollama LLM failed: %s", exc)
+            logger.warning("llama.cpp LLM failed: %s", exc)
             raise
 
         return RagResponse(
@@ -111,21 +128,21 @@ class RagPipeline:
         """
         Stream only the answer text (no metadata). Keeps same retrieval/prompting as answer().
         """
-        results = self.retrieve(question)
+        try:
+            results = self.retrieve(question)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Retrieval failed in stream mode, using direct LLM response: %s", exc)
+            return self._stream_direct(question)
         if self.settings.rag.min_score > 0:
             results = [r for r in results if r.score >= self.settings.rag.min_score]
         results = self._rerank_results(results, question)
         results = results[: self.settings.rag.top_k]
         if not results:
-            # Mirror non-streaming behavior to avoid hallucinations when the index is empty.
-            def no_context() -> Iterable[str]:
-                yield "I don't know based on the indexed documents."
-
-            return no_context()
+            return self._stream_direct(question)
         context = self._build_context(results)
         prompt = USER_PROMPT_TEMPLATE.format(question=question, context=context)
         try:
             return self._generate_stream(prompt)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Ollama LLM failed in stream mode: %s", exc)
+            logger.warning("llama.cpp LLM failed in stream mode: %s", exc)
             raise

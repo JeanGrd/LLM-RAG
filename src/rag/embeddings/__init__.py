@@ -1,4 +1,4 @@
 from .base import Embeddings
-from .ollama import OllamaEmbeddings
+from .llama_cpp import LlamaCppEmbeddings
 
-__all__ = ["Embeddings", "OllamaEmbeddings"]
+__all__ = ["Embeddings", "LlamaCppEmbeddings"]

@@ -59,7 +59,7 @@ def test_pipeline_answer():
     pipeline = RagPipeline(
         embeddings=DummyEmbeddings(),
         vectorstore=DummyVectorStore(),
-        llm_ollama=DummyLLM(),
+        llm=DummyLLM(),
         settings=settings,
     )
     resp = pipeline.answer("hello")
@@ -69,30 +69,30 @@ def test_pipeline_answer():
 
 
 def test_pipeline_uses_configured_model_override():
-    settings = Settings(ollama={"llm_model": "qwen2.5:1.5b"})
-    ollama = RecorderLLM("ollama-model")
+    settings = Settings(llama_cpp={"llm_model": "qwen2.5:1.5b"})
+    llm = RecorderLLM("llama-model")
     pipeline = RagPipeline(
         embeddings=DummyEmbeddings(),
         vectorstore=DummyVectorStore(),
-        llm_ollama=ollama,
+        llm=llm,
         settings=settings,
     )
 
     resp = pipeline.answer("hello")
 
-    assert resp.answer == "ok:ollama-model"
-    assert resp.model == "ollama-model"
+    assert resp.answer == "ok:llama-model"
+    assert resp.model == "llama-model"
     assert resp.used_fallback is False
-    assert ollama.calls == 1
+    assert llm.calls == 1
 
 
-def test_pipeline_raises_when_ollama_fails():
+def test_pipeline_raises_when_llama_fails():
     settings = Settings()
-    ollama = RecorderLLM("ollama-model", should_fail=True)
+    llm = RecorderLLM("llama-model", should_fail=True)
     pipeline = RagPipeline(
         embeddings=DummyEmbeddings(),
         vectorstore=DummyVectorStore(),
-        llm_ollama=ollama,
+        llm=llm,
         settings=settings,
     )
 
@@ -105,7 +105,7 @@ def test_pipeline_returns_unknown_when_no_results():
     pipeline = RagPipeline(
         embeddings=DummyEmbeddings(),
         vectorstore=EmptyVectorStore(),
-        llm_ollama=RecorderLLM("ollama-model"),
+        llm=RecorderLLM("llama-model"),
         settings=settings,
     )
     resp = pipeline.answer("hello")

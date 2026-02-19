@@ -5,10 +5,17 @@ import os
 from pathlib import Path
 from typing import List, Tuple
 
-import requests
 from tqdm import tqdm
 
-from rag.embeddings import OllamaEmbeddings
+import requests
+
+from rag.embeddings import LlamaCppEmbeddings
+from rag.llama_cpp import (
+    build_endpoint_urls,
+    filter_embedding_models,
+    list_remote_models,
+    resolve_model_alias,
+)
 from rag.loaders import SUPPORTED_EXTENSIONS, load_document
 from rag.models import Document
 from rag.settings import load_settings
@@ -50,20 +57,29 @@ def main() -> None:
     data_dir = Path(args.data_dir or settings.paths.data_dir) / "raw"
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    # Quick readiness probe so we fail fast if Ollama isn't running.
-    try:
-        resp = requests.get(f"{settings.ollama.base_url}/api/tags", timeout=5)
-        resp.raise_for_status()
-    except Exception as exc:  # noqa: BLE001
+    endpoints = build_endpoint_urls(settings.llama_cpp.base_url, settings.llama_cpp.resolved_rpc_targets())
+    remote_models = list_remote_models(endpoints, settings.llama_cpp.timeout_s)
+    if not remote_models:
         raise SystemExit(
-            f"Ollama not reachable at {settings.ollama.base_url}. "
-            "Start it first: `ollama serve` (or ensure the service is up)."
-        ) from exc
+            f"llama.cpp server not reachable at any configured endpoint ({', '.join(endpoints)}). "
+            "Start it first (e.g. `llama-server --model path/to/model.gguf`)."
+        )
 
-    embedder = OllamaEmbeddings(
-        base_url=settings.ollama.base_url,
-        model=settings.ollama.embed_model,
-        timeout_s=settings.ollama.timeout_s,
+    embed_model = (settings.llama_cpp.embed_model or "").strip()
+    if not embed_model:
+        embedding_models = filter_embedding_models(remote_models)
+        if embedding_models:
+            embed_model = embedding_models[0]
+        elif (settings.llama_cpp.llm_model or "").strip():
+            embed_model = settings.llama_cpp.llm_model
+        else:
+            embed_model = remote_models[0]
+    embed_model = resolve_model_alias(embed_model, remote_models)
+    embedder = LlamaCppEmbeddings(
+        base_url=settings.llama_cpp.base_url,
+        model=embed_model,
+        timeout_s=settings.llama_cpp.timeout_s,
+        rpc_targets=settings.llama_cpp.resolved_rpc_targets(),
     )
     store = ChromaVectorStore(index_dir=settings.paths.index_dir)
 
@@ -85,10 +101,10 @@ def main() -> None:
             embeddings = embedder.embed_texts([d.text for d in batch])
         except requests.HTTPError as exc:
             if exc.response is not None and exc.response.status_code == 404:
-                model = settings.ollama.embed_model
+                model = embed_model
                 raise RuntimeError(
-                    f"Embedding model '{model}' not found on Ollama ({settings.ollama.base_url}). "
-                    f"Install it first, e.g.: make ollama-pull MODEL={model}"
+                    f"Embedding model '{model}' not available on llama.cpp server ({settings.llama_cpp.base_url}). "
+                    "Load or serve the model, then retry."
                 ) from exc
             raise
         store.add(batch, embeddings)

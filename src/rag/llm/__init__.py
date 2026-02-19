@@ -1,4 +1,4 @@
 from .base import LLM
-from .ollama import OllamaLLM
+from .llama_cpp import LlamaCppLLM
 
-__all__ = ["LLM", "OllamaLLM"]
+__all__ = ["LLM", "LlamaCppLLM"]
