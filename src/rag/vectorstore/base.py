@@ -14,3 +14,7 @@ class VectorStore(ABC):
     @abstractmethod
     def query(self, query_embedding: List[float], top_k: int) -> List[RetrievalResult]:
         raise NotImplementedError
+
+    @abstractmethod
+    def delete_by_sources(self, sources: Iterable[str]) -> int:
+        raise NotImplementedError

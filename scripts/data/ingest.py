@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 from typing import List, Tuple
@@ -24,6 +25,8 @@ from rag.text.normalization import normalize_text
 from rag.vectorstore import ChromaVectorStore
 
 BATCH_SIZE = int(os.getenv("BATCH_SIZE", "8"))
+MANIFEST_VERSION = 1
+MANIFEST_FILENAME = ".ingest_manifest.json"
 
 
 def collect_files(root: Path) -> List[Path]:
@@ -48,21 +51,69 @@ def build_chunks(documents: List[Document], chunk_size: int, overlap: int) -> Li
     return chunks
 
 
+def file_signature(path: Path) -> dict:
+    stat = path.stat()
+    return {
+        "size": int(stat.st_size),
+        "mtime_ns": int(stat.st_mtime_ns),
+    }
+
+
+def load_manifest(index_dir: Path) -> dict:
+    manifest_path = index_dir / MANIFEST_FILENAME
+    if not manifest_path.exists():
+        return {"version": MANIFEST_VERSION, "files": {}}
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"version": MANIFEST_VERSION, "files": {}}
+    files = payload.get("files")
+    if not isinstance(files, dict):
+        files = {}
+    return {
+        "version": payload.get("version", MANIFEST_VERSION),
+        "files": files,
+    }
+
+
+def save_manifest(index_dir: Path, signatures: dict) -> None:
+    payload = {
+        "version": MANIFEST_VERSION,
+        "files": signatures,
+    }
+    manifest_path = index_dir / MANIFEST_FILENAME
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingest documents into the vector store")
     parser.add_argument("--data-dir", default=None, help="Override data dir")
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Force full rebuild behavior (drop prior source entries before indexing all files).",
+    )
     args = parser.parse_args()
 
     settings = load_settings()
     data_dir = Path(args.data_dir or settings.paths.data_dir) / "raw"
     data_dir.mkdir(parents=True, exist_ok=True)
+    index_dir = Path(settings.paths.index_dir)
+    index_dir.mkdir(parents=True, exist_ok=True)
 
-    endpoints = build_endpoint_urls(settings.llama_cpp.base_url, settings.llama_cpp.resolved_rpc_targets())
+    llm_base_url = settings.llama_cpp.base_url
+    embed_base_url = (settings.llama_cpp.embed_base_url or "").strip() or llm_base_url
+    rpc_targets = settings.llama_cpp.resolved_rpc_targets()
+    same_base_url = embed_base_url.rstrip("/") == llm_base_url.rstrip("/")
+    embed_rpc_targets = rpc_targets if same_base_url else []
+
+    endpoints = build_endpoint_urls(embed_base_url, embed_rpc_targets)
     remote_models = list_remote_models(endpoints, settings.llama_cpp.timeout_s)
     if not remote_models:
         raise SystemExit(
-            f"llama.cpp server not reachable at any configured endpoint ({', '.join(endpoints)}). "
-            "Start it first (e.g. `llama-server --model path/to/model.gguf`)."
+            f"Embedding endpoint not reachable ({', '.join(endpoints)}). "
+            "Start an embedding-capable llama.cpp server first."
         )
 
     embed_model = (settings.llama_cpp.embed_model or "").strip()
@@ -76,16 +127,40 @@ def main() -> None:
             embed_model = remote_models[0]
     embed_model = resolve_model_alias(embed_model, remote_models)
     embedder = LlamaCppEmbeddings(
-        base_url=settings.llama_cpp.base_url,
+        base_url=embed_base_url,
         model=embed_model,
         timeout_s=settings.llama_cpp.timeout_s,
-        rpc_targets=settings.llama_cpp.resolved_rpc_targets(),
+        rpc_targets=embed_rpc_targets,
     )
     store = ChromaVectorStore(index_dir=settings.paths.index_dir)
 
     files = collect_files(data_dir)
     if not files:
         print(f"No supported files found in {data_dir}")
+        return
+
+    manifest = load_manifest(index_dir)
+    previous_files = manifest.get("files", {})
+    current_signatures = {str(path): file_signature(path) for path in files}
+
+    changed_files = [
+        path
+        for path in files
+        if args.full or previous_files.get(str(path)) != current_signatures[str(path)]
+    ]
+    removed_sources = [source for source in previous_files.keys() if source not in current_signatures]
+
+    if args.full:
+        removed_sources = sorted(set(removed_sources + list(previous_files.keys())))
+
+    unchanged_count = len(files) - len(changed_files)
+    print(f"Discovered {len(files)} files ({len(changed_files)} changed, {unchanged_count} unchanged)")
+    if removed_sources:
+        deleted = store.delete_by_sources(removed_sources)
+        print(f"Removed {deleted} stale chunks from {len(removed_sources)} deleted/changed sources")
+
+    if not changed_files and not removed_sources:
+        print("Index is already up to date")
         return
 
     skipped_files: List[Tuple[Path, str]] = []
@@ -103,7 +178,7 @@ def main() -> None:
             if exc.response is not None and exc.response.status_code == 404:
                 model = embed_model
                 raise RuntimeError(
-                    f"Embedding model '{model}' not available on llama.cpp server ({settings.llama_cpp.base_url}). "
+                    f"Embedding model '{model}' not available on llama.cpp server ({embed_base_url}). "
                     "Load or serve the model, then retry."
                 ) from exc
             raise
@@ -111,13 +186,14 @@ def main() -> None:
         total_chunks += len(batch)
         batch = []
 
-    for file in tqdm(files, desc="Indexing"):
+    for file in tqdm(changed_files, desc="Indexing"):
         try:
             docs = load_document(file)
         except Exception as exc:  # noqa: BLE001
             skipped_files.append((file, str(exc)))
             continue
 
+        store.delete_by_sources([str(file)])
         file_chunks = build_chunks(docs, settings.rag.chunk_size, settings.rag.chunk_overlap)
         if not file_chunks:
             continue
@@ -133,6 +209,11 @@ def main() -> None:
         print("No chunks were indexed")
     else:
         print(f"Indexed {total_chunks} chunks from {ingested_files} files")
+
+    skipped_sources = {str(path) for path, _ in skipped_files}
+    for source in skipped_sources:
+        current_signatures.pop(source, None)
+    save_manifest(index_dir, current_signatures)
 
     if skipped_files:
         print("\nSkipped files:")

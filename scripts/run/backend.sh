@@ -39,6 +39,7 @@ fi
 export RAG_CONFIG_PATH="${RAG_CONFIG_PATH:-${PROJECT_DIR}/config/settings.yaml}"
 export RAG_ENV_FILE="${RAG_ENV_FILE:-${PROJECT_DIR}/.env}"
 export LLAMA_CPP_BASE_URL="${LLAMA_CPP_BASE_URL:-http://127.0.0.1:8080}"
+export LLAMA_CPP_EMBED_BASE_URL="${LLAMA_CPP_EMBED_BASE_URL:-${LLAMA_CPP_BASE_URL}}"
 if [ -n "${MODEL_NAME:-}" ] && [ -z "${LLAMA_CPP_LLM_MODEL:-}" ]; then
   export LLAMA_CPP_LLM_MODEL="${MODEL_NAME}"
 fi
@@ -50,9 +51,14 @@ if [ -n "${configured_model}" ] && [ -z "${LLAMA_CPP_LLM_MODEL:-}" ]; then
   export LLAMA_CPP_LLM_MODEL="${configured_model}"
 fi
 
-if [ -z "${LLAMA_CPP_LLM_MODEL:-}" ] && command -v curl >/dev/null 2>&1; then
-  discovered_model="$(
-    curl -fsS "${LLAMA_CPP_BASE_URL%/}/v1/models" 2>/dev/null | python -c '
+discover_model() {
+  local endpoint="$1"
+  local mode="$2"
+  if ! command -v curl >/dev/null 2>&1; then
+    echo ""
+    return
+  fi
+  curl -fsS "${endpoint%/}/v1/models" 2>/dev/null | python -c '
 import json
 import sys
 try:
@@ -60,15 +66,25 @@ try:
 except Exception:
     print("")
     raise SystemExit(0)
+mode = "'"${mode}"'"
 for item in payload.get("data", []):
     model_id = str(item.get("id", "")).strip()
     low = model_id.lower()
-    if model_id and "embed" not in low and "embedding" not in low:
+    if not model_id:
+        continue
+    is_embedding = ("embed" in low or "embedding" in low)
+    if mode == "chat" and not is_embedding:
+        print(model_id)
+        raise SystemExit(0)
+    if mode == "embedding" and is_embedding:
         print(model_id)
         raise SystemExit(0)
 print("")
 '
-  )"
+}
+
+if [ -z "${LLAMA_CPP_LLM_MODEL:-}" ]; then
+  discovered_model="$(discover_model "${LLAMA_CPP_BASE_URL}" "chat")"
   if [ -n "${discovered_model}" ]; then
     export LLAMA_CPP_LLM_MODEL="${discovered_model}"
     echo "[backend] Auto-selected chat model: ${LLAMA_CPP_LLM_MODEL}"
@@ -89,7 +105,20 @@ else
   echo "[backend] /query will fail until you set a chat model."
 fi
 
-echo "[backend] Llama endpoint: ${LLAMA_CPP_BASE_URL}"
+if [ -z "${LLAMA_CPP_EMBED_MODEL:-}" ]; then
+  discovered_embed_model="$(discover_model "${LLAMA_CPP_EMBED_BASE_URL}" "embedding")"
+  if [ -n "${discovered_embed_model}" ]; then
+    export LLAMA_CPP_EMBED_MODEL="${discovered_embed_model}"
+    echo "[backend] Auto-selected embedding model: ${LLAMA_CPP_EMBED_MODEL}"
+  fi
+fi
+
+echo "[backend] LLM endpoint: ${LLAMA_CPP_BASE_URL}"
+echo "[backend] Embed endpoint: ${LLAMA_CPP_EMBED_BASE_URL}"
+if [ -z "${LLAMA_CPP_EMBED_MODEL:-}" ]; then
+  echo "[backend] WARNING: no embedding model detected on ${LLAMA_CPP_EMBED_BASE_URL}."
+  echo "[backend] RAG retrieval may fallback to direct chat response."
+fi
 
 if [ "${FORCE_REINGEST}" = "1" ] || [ ! -d "${INDEX_DIR}" ] || [ -z "$(ls -A "${INDEX_DIR}" 2>/dev/null)" ]; then
   echo "[backend] Building/refreshing vector index..."

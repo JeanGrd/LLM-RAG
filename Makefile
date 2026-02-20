@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help ingest reingest backend openwebui llama models
+.PHONY: help ingest reingest backend openwebui llama models up down doctor
 
 ifneq (,$(wildcard .env))
 include .env
@@ -13,6 +13,9 @@ help:
 	@echo "  make openwebui          Start Open WebUI connected to backend"
 	@echo "  make llama              Start llama-server (LLAMA_MODEL or auto-pick)"
 	@echo "  make models             List local GGUF files + remote /v1/models"
+	@echo "  make up                 Start llama + backend + Open WebUI in background"
+	@echo "  make down               Stop stack started by make up"
+	@echo "  make doctor             Run local diagnostics (venv, GGUF, endpoints)"
 	@echo "  make ingest             Build/update index"
 	@echo "  make reingest           Reset and rebuild index"
 
@@ -34,3 +37,12 @@ llama:
 
 models:
 	./scripts/run/llama_models.sh
+
+up:
+	./scripts/run/up.sh
+
+down:
+	./scripts/run/down.sh
+
+doctor:
+	./scripts/run/doctor.sh

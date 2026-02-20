@@ -81,3 +81,20 @@ class ChromaVectorStore(VectorStore):
                 )
             )
         return results
+
+    def delete_by_sources(self, sources: Iterable[str]) -> int:
+        deleted = 0
+        deduped = []
+        for source in sources:
+            normalized = str(source).strip()
+            if normalized and normalized not in deduped:
+                deduped.append(normalized)
+
+        for source in deduped:
+            payload = self.collection.get(where={"source": source}, include=[])
+            ids = payload.get("ids", []) if isinstance(payload, dict) else []
+            if not ids:
+                continue
+            self.collection.delete(where={"source": source})
+            deleted += len(ids)
+        return deleted

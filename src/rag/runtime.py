@@ -49,29 +49,36 @@ def _resolve_chat_model(configured_model: str, remote_models: list[str]) -> str:
 
 def build_pipeline(settings: Optional[Settings] = None) -> RagPipeline:
     runtime_settings = settings or load_settings()
+    llm_base_url = runtime_settings.llama_cpp.base_url
     rpc_targets = runtime_settings.llama_cpp.resolved_rpc_targets()
-    base_url = runtime_settings.llama_cpp.base_url
-    endpoints = build_endpoint_urls(base_url, rpc_targets)
-    remote_models = list_remote_models(endpoints, runtime_settings.llama_cpp.timeout_s)
+    llm_endpoints = build_endpoint_urls(llm_base_url, rpc_targets)
+    llm_remote_models = list_remote_models(llm_endpoints, runtime_settings.llama_cpp.timeout_s)
 
-    llm_model = _resolve_chat_model(_resolve_model(runtime_settings), remote_models)
+    embed_base_url = (runtime_settings.llama_cpp.embed_base_url or "").strip() or llm_base_url
+    same_base_url = embed_base_url.rstrip("/") == llm_base_url.rstrip("/")
+    embed_rpc_targets = rpc_targets if same_base_url else []
+    embed_endpoints = build_endpoint_urls(embed_base_url, embed_rpc_targets)
+    embed_remote_models = list_remote_models(embed_endpoints, runtime_settings.llama_cpp.timeout_s)
+
+    llm_model = _resolve_chat_model(_resolve_model(runtime_settings), llm_remote_models)
     embed_model_config = (runtime_settings.llama_cpp.embed_model or "").strip()
     if embed_model_config:
-        embed_model = resolve_model_alias(embed_model_config, remote_models)
+        embed_candidates = embed_remote_models or llm_remote_models
+        embed_model = resolve_model_alias(embed_model_config, embed_candidates)
     else:
-        embedding_models = filter_embedding_models(remote_models)
+        embedding_models = filter_embedding_models(embed_remote_models)
         embed_model = embedding_models[0] if embedding_models else llm_model
 
     return RagPipeline(
         embeddings=LlamaCppEmbeddings(
-            base_url=base_url,
+            base_url=embed_base_url,
             model=embed_model,
             timeout_s=runtime_settings.llama_cpp.timeout_s,
-            rpc_targets=rpc_targets,
+            rpc_targets=embed_rpc_targets,
         ),
         vectorstore=ChromaVectorStore(index_dir=runtime_settings.paths.index_dir),
         llm=LlamaCppLLM(
-            base_url=base_url,
+            base_url=llm_base_url,
             model=llm_model,
             timeout_s=runtime_settings.llama_cpp.timeout_s,
             rpc_targets=rpc_targets,

@@ -20,6 +20,7 @@ OPENWEBUI_PORT="${OPENWEBUI_PORT:-3000}"
 OPENAI_API_BASE_URL="${OPENAI_API_BASE_URL:-http://127.0.0.1:8000/v1}"
 OPENAI_API_KEY="${OPENAI_API_KEY:-local-rag}"
 ENABLE_OLLAMA_API="${ENABLE_OLLAMA_API:-false}"
+OPENWEBUI_BACKEND_WAIT_S="${OPENWEBUI_BACKEND_WAIT_S:-45}"
 
 if [ ! -f "${OPENWEBUI_VENV}/bin/activate" ]; then
   if command -v python3.11 >/dev/null 2>&1; then
@@ -46,17 +47,34 @@ fi
 export OPENAI_API_BASE_URL
 export OPENAI_API_KEY
 export ENABLE_OLLAMA_API
+# Keep Ollama integration hard-disabled for this project setup.
+export OLLAMA_BASE_URL="${OLLAMA_BASE_URL:-http://127.0.0.1:11434}"
+export OLLAMA_API_BASE_URL="${OLLAMA_API_BASE_URL:-${OLLAMA_BASE_URL}}"
 
 if command -v curl >/dev/null 2>&1; then
-  models_json="$(curl -fsS "${OPENAI_API_BASE_URL}/models" 2>/dev/null || true)"
-  if [ -z "${models_json}" ]; then
-    echo "[openwebui] WARNING: backend is not reachable at ${OPENAI_API_BASE_URL}."
-    echo "[openwebui] Start backend first: make backend"
-  elif command -v python >/dev/null 2>&1; then
+  models_json=""
+  start_ts="$(date +%s)"
+  while true; do
+    models_json="$(curl -fsS "${OPENAI_API_BASE_URL}/models" 2>/dev/null || true)"
+    if [ -n "${models_json}" ]; then
+      break
+    fi
+    now_ts="$(date +%s)"
+    elapsed="$((now_ts - start_ts))"
+    if [ "${elapsed}" -ge "${OPENWEBUI_BACKEND_WAIT_S}" ]; then
+      echo "[openwebui] ERROR: backend is unreachable at ${OPENAI_API_BASE_URL}."
+      echo "[openwebui] Start it first: make backend"
+      exit 1
+    fi
+    sleep 1
+  done
+
+  if command -v python >/dev/null 2>&1; then
     model_count="$(printf '%s' "${models_json}" | python -c 'import json, sys; p=json.load(sys.stdin); print(len(p.get("data", [])))' 2>/dev/null || echo 0)"
     if [ "${model_count}" = "0" ]; then
-      echo "[openwebui] WARNING: backend returned 0 models at ${OPENAI_API_BASE_URL}/models."
-      echo "[openwebui] Set LLAMA_CPP_LLM_MODEL and ensure llama-server is serving a chat model."
+      echo "[openwebui] ERROR: backend returned 0 models at ${OPENAI_API_BASE_URL}/models."
+      echo "[openwebui] Set LLAMA_CPP_LLM_MODEL and ensure llama-server serves a chat model."
+      exit 1
     else
       echo "[openwebui] Models available from backend:"
       printf '%s' "${models_json}" | python -c '

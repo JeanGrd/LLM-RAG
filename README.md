@@ -51,6 +51,7 @@ Configuration model:
 
 Key settings (see `.env`):
 - `LLAMA_CPP_BASE_URL` (default `http://127.0.0.1:8080`)
+- `LLAMA_CPP_EMBED_BASE_URL` (optional dedicated embedding endpoint; defaults to `LLAMA_CPP_BASE_URL`)
 - `LLAMA_CPP_LLM_MODEL` (model id from `/v1/models`; required for `/query`, optional for `/v1/chat/completions`)
 - `LLAMA_CPP_EMBED_MODEL` (optional model id; if empty, backend auto-picks an embedding model when available)
 - `LLAMA_CPP_RPC_TARGETS` for extra endpoints
@@ -63,6 +64,8 @@ cd /Users/jean/IdeaProjects/LLM-RAG
 source .venv/bin/activate
 make ingest
 ```
+`make ingest` is incremental (re-indexes only changed files).  
+Use `make reingest` for a full rebuild.
 
 ### 4) Run backend
 ```bash
@@ -85,7 +88,19 @@ LLAMA_THREADS=8 LLAMA_THREADS_BATCH=8 LLAMA_PARALLEL=4 make llama
 LLAMA_SERVER_RPC_TARGETS=192.168.1.40:50052,192.168.1.41:50052 make llama
 ```
 
-### 5) Run Open WebUI (optional)
+### 5) Full stack lifecycle
+```bash
+# starts llama + backend + openwebui in background
+make up
+
+# stops what make up started
+make down
+
+# local diagnostics (venv, models, endpoints, config sanity)
+make doctor
+```
+
+### 6) Run Open WebUI (optional)
 ```bash
 cd /Users/jean/IdeaProjects/LLM-RAG
 make openwebui
@@ -105,10 +120,11 @@ curl -X POST http://127.0.0.1:8000/query \
 
 ## Troubleshooting
 - If backend returns 502 and llama-server logs `POST /v1/embeddings ... 400`:
-  - backend now falls back to direct LLM response (no retrieval context)
-  - to restore full RAG quality, set `LLAMA_CPP_EMBED_MODEL` to an embedding-capable model id
+  - run a dedicated embedding endpoint and set `LLAMA_CPP_EMBED_BASE_URL`
+  - optionally set `LLAMA_CPP_EMBED_MODEL` to an embedding-capable model id
+  - fallback mode is still available (direct LLM response without retrieval context)
 
 ## Scripts layout
 - `scripts/app/`: API and CLI entrypoints
 - `scripts/data/`: ingestion
-- `scripts/run/`: runtime launchers
+- `scripts/run/`: runtime launchers (`backend.sh`, `openwebui.sh`, `llama_server.sh`, `up.sh`, `down.sh`, `doctor.sh`)

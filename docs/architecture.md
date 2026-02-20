@@ -3,8 +3,8 @@
 ## Overview
 
 The system follows a classic local RAG pipeline:
-- llama.cpp for generation.
-- llama.cpp embeddings for retrieval.
+- llama.cpp for generation (chat endpoint).
+- llama.cpp embeddings for retrieval (same or dedicated embedding endpoint).
 - ChromaDB local persistent vector index.
 
 ## Data Flow
@@ -14,6 +14,7 @@ The system follows a classic local RAG pipeline:
    - Loaders extract text.
    - Text normalization + chunking.
    - Embeddings computed with llama.cpp.
+   - Incremental manifest tracks file signatures; unchanged files are skipped.
    - Vectors stored in ChromaDB (local persistent store).
 
 2. Retrieval

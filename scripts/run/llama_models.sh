@@ -5,6 +5,7 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MODELS_DIR="${PROJECT_DIR}/models"
 LLAMA_CPP_BASE_URL="${LLAMA_CPP_BASE_URL:-http://127.0.0.1:8080}"
+LLAMA_CPP_EMBED_BASE_URL="${LLAMA_CPP_EMBED_BASE_URL:-${LLAMA_CPP_BASE_URL}}"
 
 human_size() {
   local bytes="$1"
@@ -65,24 +66,18 @@ else
   fi
 fi
 
-echo
-echo "[models] Remote endpoint: ${LLAMA_CPP_BASE_URL%/}/v1/models"
-if ! command -v curl >/dev/null 2>&1; then
-  echo "  - curl is not available"
-  exit 0
-fi
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "  - python3 is required to parse JSON output"
-  exit 0
-fi
+list_remote_models() {
+  local label="$1"
+  local endpoint="$2"
+  echo
+  echo "[models] Remote ${label} endpoint: ${endpoint%/}/v1/models"
+  remote_json="$(curl -fsS "${endpoint%/}/v1/models" 2>/dev/null || true)"
+  if [ -z "${remote_json}" ]; then
+    echo "  - endpoint not reachable"
+    return
+  fi
 
-remote_json="$(curl -fsS "${LLAMA_CPP_BASE_URL%/}/v1/models" 2>/dev/null || true)"
-if [ -z "${remote_json}" ]; then
-  echo "  - endpoint not reachable"
-  exit 0
-fi
-
-remote_models="$(printf '%s' "${remote_json}" | python3 -c '
+  remote_models="$(printf '%s' "${remote_json}" | python3 -c '
 import json
 import sys
 try:
@@ -96,13 +91,28 @@ for item in payload.get("data", []):
         print(model_id.strip())
 ')"
 
-if [ -z "${remote_models}" ]; then
-  echo "  - no model published by server"
+  if [ -z "${remote_models}" ]; then
+    echo "  - no model published by server"
+    return
+  fi
+
+  printf "  %-52s %s\n" "id" "kind"
+  while IFS= read -r model_id; do
+    [ -z "${model_id}" ] && continue
+    printf "  %-52s %s\n" "${model_id}" "$(model_kind "${model_id}")"
+  done <<< "${remote_models}"
+}
+
+if ! command -v curl >/dev/null 2>&1; then
+  echo "  - curl is not available"
+  exit 0
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "  - python3 is required to parse JSON output"
   exit 0
 fi
 
-printf "  %-52s %s\n" "id" "kind"
-while IFS= read -r model_id; do
-  [ -z "${model_id}" ] && continue
-  printf "  %-52s %s\n" "${model_id}" "$(model_kind "${model_id}")"
-done <<< "${remote_models}"
+list_remote_models "chat" "${LLAMA_CPP_BASE_URL}"
+if [ "${LLAMA_CPP_EMBED_BASE_URL%/}" != "${LLAMA_CPP_BASE_URL%/}" ]; then
+  list_remote_models "embedding" "${LLAMA_CPP_EMBED_BASE_URL}"
+fi

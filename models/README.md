@@ -19,3 +19,4 @@ LLAMA_EMBEDDINGS_ONLY=1 ./scripts/run/llama_server.sh ./models/embedding-model.g
 Multiple models:
 - llama.cpp serves one model per process. Run separate terminals/ports if you want multiple models available, then set `LLAMA_CPP_RPC_TARGETS`.
 - To inspect what the project currently sees: `make models`.
+- To validate model files and runtime config quickly: `make doctor`.

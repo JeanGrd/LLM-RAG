@@ -31,11 +31,14 @@ llama-server \
 ```
 
 If you have additional remote endpoints, set `LLAMA_CPP_RPC_TARGETS`.
+For split chat/embedding servers, also set `LLAMA_CPP_EMBED_BASE_URL`.
 
 ## 3) Build or rebuild the vector index
 ```bash
 cd /opt/LLM-RAG
 source .venv/bin/activate
+make ingest      # incremental
+# or full rebuild:
 make reingest
 ```
 
@@ -44,6 +47,7 @@ make reingest
 cd /opt/LLM-RAG
 source .venv/bin/activate
 export LLAMA_CPP_BASE_URL=http://127.0.0.1:8080
+export LLAMA_CPP_EMBED_BASE_URL=http://127.0.0.1:8081  # optional split endpoint
 # Use the exact id returned by: curl http://127.0.0.1:8080/v1/models
 export LLAMA_CPP_LLM_MODEL=your-chat-model.gguf
 HOST=0.0.0.0 PORT=8000 python scripts/app/run_api.py

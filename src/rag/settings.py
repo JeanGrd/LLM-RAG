@@ -20,6 +20,7 @@ class Paths(BaseModel):
 
 class LlamaCppConfig(BaseModel):
     base_url: str = "http://127.0.0.1:8080"
+    embed_base_url: str = ""  # optional dedicated endpoint for /v1/embeddings
     llm_model: str = ""  # optional default; if empty, client must pass model per request
     embed_model: str = ""  # falls back to llm_model when empty
     timeout_s: int = 120
@@ -97,6 +98,7 @@ def legacy_env_settings_source() -> Dict[str, Any]:
         return []
 
     set_nested("llama_cpp.base_url", env.get("LLAMA_CPP_BASE_URL"))
+    set_nested("llama_cpp.embed_base_url", env.get("LLAMA_CPP_EMBED_BASE_URL"))
     set_nested("llama_cpp.embed_model", env.get("LLAMA_CPP_EMBED_MODEL"))
     set_nested("llama_cpp.llm_model", env.get("LLAMA_CPP_LLM_MODEL") or env.get("MODEL_NAME"))
     set_nested("llama_cpp.timeout_s", env.get("LLAMA_CPP_TIMEOUT_S"))
