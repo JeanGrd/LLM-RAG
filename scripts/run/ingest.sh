@@ -97,24 +97,25 @@ stop_started_embed() {
   rm -f "${EMBED_PID_FILE}"
 }
 
-start_embedding_server() {
-  port_in_use() {
-    local port="$1"
-    if command -v lsof >/dev/null 2>&1; then
-      lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
-      return $?
-    fi
-    if command -v ss >/dev/null 2>&1; then
-      ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$"
-      return $?
-    fi
-    if command -v netstat >/dev/null 2>&1; then
-      netstat -lnt 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$"
-      return $?
-    fi
-    return 1
-  }
+port_in_use() {
+  local host="$1" port="$2"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN 2>/dev/null | grep -q ":${port}"
+    return $?
+  fi
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltn "( sport = :${port} )" 2>/dev/null | grep -q ":${port}"
+    return $?
+  fi
+  if command -v netstat >/dev/null 2>&1; then
+    netstat -ltn 2>/dev/null | grep -q ":${port}"
+    return $?
+  fi
+  # Last resort: optimistically assume free; actual bind may still fail.
+  return 1
+}
 
+start_embedding_server() {
   local embed_model_arg="${LLAMA_EMBED_MODEL:-}"
   local try_idx candidate_port candidate_url
   for try_idx in $(seq 0 $((EMBED_PORT_MAX_TRIES - 1))); do
@@ -129,7 +130,7 @@ start_embedding_server() {
       return 0
     fi
 
-    if port_in_use "${candidate_port}"; then
+    if port_in_use "${EMBED_HOST}" "${candidate_port}"; then
       continue
     fi
 

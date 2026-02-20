@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any, Dict, Literal
 
 import yaml
@@ -120,6 +121,34 @@ def legacy_env_settings_source() -> Dict[str, Any]:
     return data
 
 
+def _ensure_writable_dir(path: str, fallback_leaf: str) -> str:
+    """
+    Make sure a directory exists and is writable. If not, fall back to a
+    user-writable location under $XDG_DATA_HOME or ~/.local/share/llm-rag/<leaf>.
+    """
+    target = Path(path).expanduser()
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+        probe = target / ".write_test"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
+        return str(target)
+    except Exception as exc:  # pragma: no cover - platform/perm specific
+        fallback_root = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local/share"))
+        fallback = fallback_root / "llm-rag" / fallback_leaf
+        fallback.mkdir(parents=True, exist_ok=True)
+        probe = fallback / ".write_test"
+        try:
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+        except Exception as exc2:
+            raise RuntimeError(
+                f"Neither '{target}' nor fallback '{fallback}' is writable: {exc2}"
+            ) from exc
+        print(f"[settings] '{target}' not writable; using '{fallback}' instead ({exc}).")
+        return str(fallback)
+
+
 class Settings(BaseSettings):
     app_env: str = "local"
     log_level: str = "INFO"
@@ -158,4 +187,7 @@ class Settings(BaseSettings):
 
 
 def load_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    settings.paths.data_dir = str(Path(settings.paths.data_dir).expanduser())
+    settings.paths.index_dir = _ensure_writable_dir(settings.paths.index_dir, "indices")
+    return settings

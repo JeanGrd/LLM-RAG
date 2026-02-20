@@ -79,12 +79,6 @@ if ! command -v llama-server >/dev/null 2>&1; then
   echo "    Install with brew: brew install llama.cpp"
   exit 1
 fi
-LLAMA_SERVER_HELP="$(llama-server --help 2>&1 || true)"
-
-supports_flag() {
-  local flag="$1"
-  printf '%s\n' "${LLAMA_SERVER_HELP}" | grep -Fq -- "${flag}"
-}
 
 rpc_targets=()
 add_rpc_target() {
@@ -147,65 +141,32 @@ cmd=(
   --model "${MODEL_PATH}"
   --host "${HOST}"
   --port "${PORT}"
+  --timeout "${TIMEOUT}"
+  --threads "${LLAMA_THREADS}"
+  --threads-batch "${LLAMA_THREADS_BATCH}"
+  --batch-size "${LLAMA_BATCH_SIZE}"
+  --ubatch-size "${LLAMA_UBATCH_SIZE}"
 )
-if supports_flag "--timeout"; then
-  cmd+=(--timeout "${TIMEOUT}")
-fi
-if supports_flag "--threads"; then
-  cmd+=(--threads "${LLAMA_THREADS}")
-fi
-if supports_flag "--threads-batch"; then
-  cmd+=(--threads-batch "${LLAMA_THREADS_BATCH}")
-fi
-if supports_flag "--batch-size"; then
-  cmd+=(--batch-size "${LLAMA_BATCH_SIZE}")
-else
-  echo "[llama-server] NOTE: --batch-size not supported by this llama-server version."
-fi
-if supports_flag "--ubatch-size"; then
-  cmd+=(--ubatch-size "${LLAMA_UBATCH_SIZE}")
-else
-  echo "[llama-server] NOTE: --ubatch-size not supported by this llama-server version."
-fi
 
-if [ -n "${LLAMA_PARALLEL}" ] && supports_flag "--parallel"; then
+if [ -n "${LLAMA_PARALLEL}" ]; then
   cmd+=(--parallel "${LLAMA_PARALLEL}")
 fi
 if [ "${#rpc_targets[@]}" -gt 0 ]; then
-  if supports_flag "--rpc"; then
-    for target in "${rpc_targets[@]}"; do
-      cmd+=(--rpc "${target}")
-    done
-  else
-    echo "[llama-server] NOTE: --rpc not supported by this llama-server version. Ignoring RPC targets."
-  fi
+  for target in "${rpc_targets[@]}"; do
+    cmd+=(--rpc "${target}")
+  done
 fi
 if [ "${LLAMA_ENABLE_EMBEDDINGS}" = "1" ]; then
-  if supports_flag "--embeddings"; then
-    cmd+=(--embeddings)
-  elif supports_flag "--embedding"; then
-    cmd+=(--embedding)
-  else
-    echo "[llama-server] ERROR: embedding mode requested but this llama-server build has no --embeddings/--embedding flag."
-    exit 1
-  fi
+  cmd+=(--embeddings)
 fi
 if [ -n "${LLAMA_POOLING}" ]; then
-  if supports_flag "--pooling"; then
-    cmd+=(--pooling "${LLAMA_POOLING}")
-  else
-    echo "[llama-server] NOTE: --pooling not supported by this llama-server version. Ignoring LLAMA_POOLING."
-  fi
+  cmd+=(--pooling "${LLAMA_POOLING}")
 fi
 if [ -n "${LLAMA_API_KEY:-}" ]; then
-  if supports_flag "--api-key"; then
-    cmd+=(--api-key "${LLAMA_API_KEY}")
-  fi
+  cmd+=(--api-key "${LLAMA_API_KEY}")
 fi
 if [ -n "${LLAMA_ALIAS:-}" ]; then
-  if supports_flag "--alias"; then
-    cmd+=(--alias "${LLAMA_ALIAS}")
-  fi
+  cmd+=(--alias "${LLAMA_ALIAS}")
 fi
 if [ -n "${LLAMA_SERVER_EXTRA_ARGS}" ]; then
   # shellcheck disable=SC2206
