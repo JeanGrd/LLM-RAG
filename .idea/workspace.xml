@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="5042d9b3-2b8a-4af7-809e-21146c130ae3" name="Changes" comment="Ok">
+      <change afterPath="$PROJECT_DIR$/models/Qwen3-8B-Q4_K_M.gguf" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/models/Qwen3-Embedding-0.6B-Q8_0.gguf" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/easycode.ignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/easycode/codebase-v2.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.webui_secret_key" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Makefile" beforeDir="false" afterPath="$PROJECT_DIR$/Makefile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/logging.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config/logging.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/settings.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/config/settings.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/.gitkeep" beforeDir="false" afterPath="$PROJECT_DIR$/data/raw/.gitkeep" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/01 Harry Potter and the Sorcerers Stone.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/02 Harry Potter and the Chamber of Secrets.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/03 Harry Potter and the Prisoner of Azkaban.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/04 Harry Potter and the Goblet of Fire.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/05 Harry Potter and the Order of the Phoenix.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/06 Harry Potter and the Half-Blood Prince.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/07 Harry Potter and the Deathly Hallows.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/README (1).md" beforeDir="false" afterPath="$PROJECT_DIR$/data/raw/README (1).md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/README (2).md" beforeDir="false" afterPath="$PROJECT_DIR$/data/raw/README (2).md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/README (3).md" beforeDir="false" afterPath="$PROJECT_DIR$/data/raw/README (3).md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/README (4).md" beforeDir="false" afterPath="$PROJECT_DIR$/data/raw/README (4).md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/README (5).md" beforeDir="false" afterPath="$PROJECT_DIR$/data/raw/README (5).md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/README (6).md" beforeDir="false" afterPath="$PROJECT_DIR$/data/raw/README (6).md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/raw/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/data/raw/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/architecture.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/architecture.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/data_format.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/data_format.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docs/deployment_rhel7.md" beforeDir="false" afterPath="$PROJECT_DIR$/docs/deployment_rhel7.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/models/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/models/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pyproject.toml" beforeDir="false" afterPath="$PROJECT_DIR$/pyproject.toml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/app/query_cli.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/app/query_cli.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/app/run_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/app/run_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/data/ingest.py" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/data/ingest.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/run/backend.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/run/backend.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/run/doctor.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/run/down.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/run/down.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/run/ingest.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/run/ingest.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/run/llama_models.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/run/llama_server.sh" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/run/openwebui.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/run/openwebui.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/run/up.sh" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/run/up.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/api/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/api/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/api/app.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/api/app.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/embeddings/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/embeddings/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/embeddings/base.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/embeddings/base.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/embeddings/llama_cpp.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/embeddings/llama_cpp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/llama_cpp.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/llama_cpp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/llm/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/llm/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/llm/base.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/llm/base.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/llm/llama_cpp.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/llm/llama_cpp.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/loaders/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/loaders/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/loaders/html.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/loaders/html.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/loaders/json.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/loaders/json.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/loaders/markdown.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/loaders/markdown.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/loaders/pdf.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/loaders/pdf.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/loaders/structured.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/loaders/structured.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/loaders/text.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/loaders/text.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/loaders/xml.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/loaders/xml.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/loaders/yaml.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/loaders/yaml.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/logging.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/logging.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/rag/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/rag/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/rag/pipeline.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/rag/pipeline.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/rag/prompts.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/rag/prompts.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/runtime.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/runtime.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/text/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/text/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/text/chunking.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/text/chunking.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/text/normalization.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/text/normalization.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/vectorstore/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/vectorstore/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/vectorstore/base.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/vectorstore/base.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/rag/vectorstore/chroma.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/rag/vectorstore/chroma.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="exo" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;JeanGrd&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/JeanGrd/LLM-RAG.git&quot;,
+    &quot;accountId&quot;: &quot;ab795ef9-de17-4c2f-865f-cd229faccaaa&quot;
+  }
+}</component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="ProjectErrors" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 6
+}</component>
+  <component name="ProjectId" id="39OdHZ9ZaGkLv0BW5sF8zWwHDGq" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Docker.docker-compose.open-webui.yml: Compose Deployment.executor": "Run",
+    "Makefile Target.api.executor": "Run",
+    "Makefile Target.backend.executor": "Run",
+    "Makefile Target.clean-db.executor": "Run",
+    "Makefile Target.clean.executor": "Run",
+    "Makefile Target.doctor.executor": "Run",
+    "Makefile Target.down.executor": "Run",
+    "Makefile Target.eval-ragas.executor": "Run",
+    "Makefile Target.eval.executor": "Run",
+    "Makefile Target.help.executor": "Run",
+    "Makefile Target.ingest.executor": "Run",
+    "Makefile Target.install.executor": "Run",
+    "Makefile Target.lint.executor": "Run",
+    "Makefile Target.llama-server.executor": "Run",
+    "Makefile Target.llama.executor": "Run",
+    "Makefile Target.models.executor": "Run",
+    "Makefile Target.openwebui.executor": "Run",
+    "Makefile Target.quick-backend.executor": "Run",
+    "Makefile Target.quick-openwebui.executor": "Run",
+    "Makefile Target.quick.executor": "Run",
+    "Makefile Target.reindex.executor": "Run",
+    "Makefile Target.reingest.executor": "Run",
+    "Makefile Target.setup.executor": "Run",
+    "Makefile Target.test.executor": "Run",
+    "Makefile Target.up.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "SHELLCHECK.PATH": "/Users/jean/Library/Application Support/JetBrains/IntelliJIdea2025.3/plugins/Shell Script/shellcheck",
+    "Shell Script.llama_server.sh.executor": "Run",
+    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
+    "git-widget-placeholder": "llama.cpp",
+    "junie.onboarding.icon.badge.shown": "true",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Users/jean/IdeaProjects/LLM-RAG/data/raw",
+    "project.structure.last.edited": "SDKs",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "to.speed.mode.migration.done": "true"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/data/raw" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/models" />
+      <recent name="$PROJECT_DIR$/data/raw" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Makefile Target.down">
+    <configuration name="clean" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile" temporary="true">
+      <makefile filename="$PROJECT_DIR$/Makefile" target="clean" workingDirectory="" arguments="">
+        <envs />
+      </makefile>
+      <method v="2" />
+    </configuration>
+    <configuration name="down" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile" temporary="true">
+      <makefile filename="$PROJECT_DIR$/Makefile" target="down" workingDirectory="" arguments="">
+        <envs />
+      </makefile>
+      <method v="2" />
+    </configuration>
+    <configuration name="install" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile" temporary="true">
+      <makefile filename="$PROJECT_DIR$/Makefile" target="install" workingDirectory="" arguments="">
+        <envs />
+      </makefile>
+      <method v="2" />
+    </configuration>
+    <configuration name="reingest" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile" temporary="true">
+      <makefile filename="$PROJECT_DIR$/Makefile" target="reingest" workingDirectory="" arguments="">
+        <envs />
+      </makefile>
+      <method v="2" />
+    </configuration>
+    <configuration name="up" type="MAKEFILE_TARGET_RUN_CONFIGURATION" factoryName="Makefile" temporary="true">
+      <makefile filename="$PROJECT_DIR$/Makefile" target="up" workingDirectory="" arguments="">
+        <envs />
+      </makefile>
+      <method v="2" />
+    </configuration>
+    <configuration default="true" type="docker-deploy" factoryName="docker-compose.yml" temporary="true">
+      <deployment type="docker-compose.yml">
+        <settings />
+      </deployment>
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Makefile Target.down" />
+        <item itemvalue="Makefile Target.up" />
+        <item itemvalue="Makefile Target.reingest" />
+        <item itemvalue="Makefile Target.install" />
+        <item itemvalue="Makefile Target.clean" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-30f59d01ecdd-26cb7f24e5b0-intellij.indexing.shared.core-IU-253.29346.138" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="5042d9b3-2b8a-4af7-809e-21146c130ae3" name="Changes" comment="" />
+      <created>1770570963902</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1770570963902</updated>
+    </task>
+    <task id="LOCAL-00001" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1770756092717</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1770756092717</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1770798187659</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1770798187659</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1770799068008</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1770799068008</updated>
+    </task>
+    <task id="LOCAL-00004" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1770883952489</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1770883952489</updated>
+    </task>
+    <task id="LOCAL-00005" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1770885994997</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1770885994997</updated>
+    </task>
+    <task id="LOCAL-00006" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1771534283133</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1771534283133</updated>
+    </task>
+    <task id="LOCAL-00007" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1771574749272</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1771574749272</updated>
+    </task>
+    <task id="LOCAL-00008" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1771583342272</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1771583342272</updated>
+    </task>
+    <task id="LOCAL-00009" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1771586726632</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1771586726632</updated>
+    </task>
+    <task id="LOCAL-00010" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1771592949814</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1771592949814</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Ok">
+      <option name="closed" value="true" />
+      <created>1771595025694</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1771595025694</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
+    <servers />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Ok" />
+    <option name="LAST_COMMIT_MESSAGE" value="Ok" />
+  </component>
+</project>

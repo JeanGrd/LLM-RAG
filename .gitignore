@@ -7,6 +7,9 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+.venv-backend/
+.venv-llama/
+.venv-openwebui/
 
 # Env
 .env
@@ -14,9 +17,16 @@ __pycache__/
 # Data
 /data/processed/
 /data/indices/
+/data/vector_db/
+/data/webui.db
+/data/eval/
 
 # Logs
 *.log
+/.run/
+
+# Local models
+/models/*.gguf
 
 # OS
 .DS_Store

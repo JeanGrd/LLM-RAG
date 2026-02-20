@@ -5,13 +5,8 @@ from pathlib import Path
 from typing import Any, Dict, Literal
 
 import yaml
-from dotenv import dotenv_values
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-
-def _env_file_path() -> str:
-    return os.getenv("RAG_ENV_FILE", ".env")
 
 
 class Paths(BaseModel):
@@ -68,63 +63,9 @@ def yaml_config_settings_source() -> Dict[str, Any]:
     return data
 
 
-def legacy_env_settings_source() -> Dict[str, Any]:
-    """
-    Support flat env vars like LLAMA_CPP_BASE_URL in addition to nested LLAMA_CPP__BASE_URL.
-    Reads from both os.environ and .env (without exporting to os.environ).
-    """
-    env_file_vals = dotenv_values(_env_file_path())
-    env = {**env_file_vals, **os.environ}
-    data: Dict[str, Any] = {}
-
-    def set_nested(path: str, value: Any) -> None:
-        if value is None or value == "":
-            return
-        cur = data
-        parts = path.split(".")
-        for part in parts[:-1]:
-            cur = cur.setdefault(part, {})
-        cur[parts[-1]] = value
-
-    def _split_list(raw: Any) -> list[str]:
-        if raw is None:
-            return []
-        if isinstance(raw, str):
-            parts: list[str] = []
-            for chunk in raw.replace(";", ",").split(","):
-                parts.extend(chunk.split())
-            return [p.strip() for p in parts if p.strip()]
-        if isinstance(raw, (list, tuple, set)):
-            return [str(item).strip() for item in raw if str(item).strip()]
-        return []
-
-    set_nested("llama_cpp.base_url", env.get("LLAMA_CPP_BASE_URL"))
-    set_nested("llama_cpp.embed_base_url", env.get("LLAMA_CPP_EMBED_BASE_URL"))
-    set_nested("llama_cpp.embed_model", env.get("LLAMA_CPP_EMBED_MODEL"))
-    set_nested("llama_cpp.llm_model", env.get("LLAMA_CPP_LLM_MODEL") or env.get("MODEL_NAME"))
-    set_nested("llama_cpp.timeout_s", env.get("LLAMA_CPP_TIMEOUT_S"))
-    rpc_targets = _split_list(env.get("LLAMA_CPP_RPC_TARGETS"))
-    if rpc_targets:
-        set_nested("llama_cpp.rpc_targets", rpc_targets)
-
-    set_nested("paths.data_dir", env.get("DATA_DIR"))
-    set_nested("paths.index_dir", env.get("INDEX_DIR"))
-
-    set_nested("rag.top_k", _coerce_env_number(env.get("TOP_K")))
-    set_nested("rag.chunk_size", _coerce_env_number(env.get("CHUNK_SIZE")))
-    set_nested("rag.chunk_overlap", _coerce_env_number(env.get("CHUNK_OVERLAP")))
-    set_nested("rag.min_score", _coerce_env_number(env.get("MIN_SCORE"), allow_float=True))
-
-    set_nested("app_env", env.get("APP_ENV"))
-    set_nested("log_level", env.get("LOG_LEVEL"))
-
-    return data
-
-
 def _ensure_writable_dir(path: str, fallback_leaf: str) -> str:
     """
-    Make sure a directory exists and is writable. If not, fall back to a
-    user-writable location under $XDG_DATA_HOME or ~/.local/share/llm-rag/<leaf>.
+    Ensure a directory exists and is writable; otherwise fall back to ~/.local/share/llm-rag/<leaf>.
     """
     target = Path(path).expanduser()
     try:
@@ -133,19 +74,13 @@ def _ensure_writable_dir(path: str, fallback_leaf: str) -> str:
         probe.write_text("ok", encoding="utf-8")
         probe.unlink(missing_ok=True)
         return str(target)
-    except Exception as exc:  # pragma: no cover - platform/perm specific
+    except Exception as exc:  # pragma: no cover
         fallback_root = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local/share"))
         fallback = fallback_root / "llm-rag" / fallback_leaf
         fallback.mkdir(parents=True, exist_ok=True)
         probe = fallback / ".write_test"
-        try:
-            probe.write_text("ok", encoding="utf-8")
-            probe.unlink(missing_ok=True)
-        except Exception as exc2:
-            raise RuntimeError(
-                f"Neither '{target}' nor fallback '{fallback}' is writable: {exc2}"
-            ) from exc
-        print(f"[settings] '{target}' not writable; using '{fallback}' instead ({exc}).")
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink(missing_ok=True)
         return str(fallback)
 
 
@@ -158,8 +93,8 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
-        env_file=_env_file_path(),
         extra="ignore",
+        env_file=None,
     )
 
     @classmethod
@@ -172,12 +107,10 @@ class Settings(BaseSettings):
         file_secret_settings,
     ):
         # Priority (highest -> lowest):
-        # init args, process env, .env, legacy flat env mapping, YAML defaults, file secrets.
+        # init args, process env, YAML defaults, file secrets.
         return (
             init_settings,
             env_settings,
-            dotenv_settings,
-            legacy_env_settings_source,
             yaml_config_settings_source,
             file_secret_settings,
         )

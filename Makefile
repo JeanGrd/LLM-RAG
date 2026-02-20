@@ -1,6 +1,8 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help ingest reingest backend openwebui llama models up down doctor
+.PHONY: help install ingest reingest backend llama up down clean openwebui
+
+BACKEND_VENV ?= .venv-backend
 
 ifneq (,$(wildcard .env))
 include .env
@@ -9,15 +11,18 @@ endif
 
 help:
 	@echo "Targets:"
-	@echo "  make backend            Start backend (ingest is manual)"
-	@echo "  make openwebui          Start Open WebUI connected to backend"
-	@echo "  make llama              Start llama-server (LLAMA_MODEL or auto-pick)"
-	@echo "  make models             List local GGUF files + remote /v1/models"
-	@echo "  make up                 Start chat llama + embed llama + backend + Open WebUI"
-	@echo "  make down               Stop stack started by make up"
-	@echo "  make doctor             Run local diagnostics (venv, GGUF, endpoints)"
-	@echo "  make ingest             Build/update index (auto-start embeddings server if needed)"
-	@echo "  make reingest           Force full rebuild: reset index then ingest from scratch"
+	@echo "  make install    Create venvs (.venv-backend, .venv-openwebui) and install deps"
+	@echo "  make ingest     Build/update index (starts embed server if needed)"
+	@echo "  make reingest   Reset index then ingest from scratch"
+	@echo "  make backend    Start API only (expects running llama servers)"
+	@echo "  make llama      Start chat + embed servers"
+	@echo "  make up         Start chat + embed + backend"
+	@echo "  make down       Stop managed servers (chat, embed, backend)"
+	@echo "  make clean      Remove venvs and runtime pids/logs"
+	@echo "  make openwebui  Start Open WebUI (uses .venv-openwebui)"
+
+install:
+	./scripts/install.sh
 
 ingest:
 	./scripts/run/ingest.sh
@@ -28,14 +33,8 @@ reingest:
 backend:
 	./scripts/run/backend.sh
 
-openwebui:
-	./scripts/run/openwebui.sh
-
 llama:
-	./scripts/run/llama_server.sh "$(LLAMA_MODEL)"
-
-models:
-	./scripts/run/llama_models.sh
+	./scripts/run/llama.sh
 
 up:
 	./scripts/run/up.sh
@@ -43,5 +42,8 @@ up:
 down:
 	./scripts/run/down.sh
 
-doctor:
-	./scripts/run/doctor.sh
+clean:
+	rm -rf $(BACKEND_VENV) .venv-openwebui .run
+
+openwebui:
+	./scripts/run/openwebui.sh

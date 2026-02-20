@@ -7,9 +7,9 @@ paths:
 
 llama_cpp:
   base_url: http://127.0.0.1:8080
-  embed_base_url: ""  # optional dedicated embedding endpoint; falls back to base_url
-  llm_model: ""  # recommended: set to the id returned by /v1/models
-  embed_model: ""  # optional; when empty, backend auto-picks an embedding model if available
+  embed_base_url: ""
+  llm_model: ""
+  embed_model: ""
   timeout_s: 120
   rpc_targets: []
 
