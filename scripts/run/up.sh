@@ -6,8 +6,10 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUN_DIR="${PROJECT_DIR}/.run"
 
 LLM_BASE_URL="${LLAMA_CPP_BASE_URL:-http://127.0.0.1:8080}"
+EMBED_BASE_URL="${LLAMA_CPP_EMBED_BASE_URL:-http://127.0.0.1:8081}"
 OPENWEBUI_PORT="${OPENWEBUI_PORT:-3000}"
 OPENWEBUI_HEALTH_URL="${OPENWEBUI_HEALTH_URL:-http://127.0.0.1:${OPENWEBUI_PORT}/api/version}"
+export LLAMA_CPP_EMBED_BASE_URL="${EMBED_BASE_URL}"
 
 mkdir -p "${RUN_DIR}"
 
@@ -75,11 +77,76 @@ wait_for_url() {
   done
 }
 
+endpoint_has_embedding_model() {
+  local endpoint="$1"
+  local models_json
+  models_json="$(curl -fsS "${endpoint%/}/v1/models" 2>/dev/null || true)"
+  if [ -z "${models_json}" ]; then
+    return 1
+  fi
+  if command -v python >/dev/null 2>&1; then
+    printf '%s' "${models_json}" | python -c '
+import json
+import sys
+try:
+    payload = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(1)
+for item in payload.get("data", []):
+    model_id = str(item.get("id") or item.get("model") or "").strip().lower()
+    if model_id and ("embed" in model_id or "embedding" in model_id):
+        raise SystemExit(0)
+raise SystemExit(1)
+'
+    return $?
+  fi
+  if command -v rg >/dev/null 2>&1; then
+    printf '%s' "${models_json}" | tr '[:upper:]' '[:lower:]' | rg -q "embed|embedding"
+  else
+    printf '%s' "${models_json}" | tr '[:upper:]' '[:lower:]' | grep -Eq "embed|embedding"
+  fi
+}
+
+parse_host_port() {
+  local url="$1"
+  local default_host="$2"
+  local default_port="$3"
+  local host_and_path host_port host port
+
+  host_and_path="${url#*://}"
+  host_port="${host_and_path%%/*}"
+  host="${host_port%%:*}"
+  port="${host_port##*:}"
+
+  if [ -z "${host}" ] || [ "${host}" = "${host_port}" ]; then
+    host="${default_host}"
+  fi
+  if ! [[ "${port}" =~ ^[0-9]+$ ]]; then
+    port="${default_port}"
+  fi
+  echo "${host} ${port}"
+}
+
 if command -v curl >/dev/null 2>&1 && curl -fsS "${LLM_BASE_URL%/}/v1/models" >/dev/null 2>&1; then
   echo "[up] llama endpoint already reachable at ${LLM_BASE_URL}; skipping managed llama start"
 else
   start_managed "llama" "${PROJECT_DIR}/scripts/run/llama_server.sh" "${LLAMA_MODEL:-}"
   wait_for_url "llama" "${LLM_BASE_URL%/}/v1/models" 120
+fi
+
+if command -v curl >/dev/null 2>&1 && endpoint_has_embedding_model "${EMBED_BASE_URL}"; then
+  echo "[up] embedding endpoint already reachable at ${EMBED_BASE_URL}; skipping managed embed start"
+else
+  read -r embed_host embed_port <<< "$(parse_host_port "${EMBED_BASE_URL}" "127.0.0.1" "8081")"
+  start_managed \
+    "llama-embed" \
+    env HOST="${embed_host}" PORT="${embed_port}" LLAMA_EMBEDDINGS_ONLY=1 \
+    "${PROJECT_DIR}/scripts/run/llama_server.sh" "${LLAMA_EMBED_MODEL:-}"
+  wait_for_url "llama-embed" "${EMBED_BASE_URL%/}/v1/models" 120
+  if ! endpoint_has_embedding_model "${EMBED_BASE_URL}"; then
+    echo "[up] ERROR: endpoint is reachable but no embedding model is published at ${EMBED_BASE_URL}"
+    exit 1
+  fi
 fi
 
 start_managed "backend" "${PROJECT_DIR}/scripts/run/backend.sh"

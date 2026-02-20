@@ -83,6 +83,30 @@ print("")
 '
 }
 
+derive_sibling_endpoint() {
+  local base_url="$1"
+  if ! command -v python >/dev/null 2>&1; then
+    echo ""
+    return
+  fi
+  python - "$base_url" <<'PY'
+from urllib.parse import urlparse
+import sys
+
+url = (sys.argv[1] or "").strip()
+if not url:
+    print("")
+    raise SystemExit(0)
+
+parsed = urlparse(url)
+if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.port is None:
+    print("")
+    raise SystemExit(0)
+
+print(f"{parsed.scheme}://{parsed.hostname}:{parsed.port + 1}")
+PY
+}
+
 if [ -z "${LLAMA_CPP_LLM_MODEL:-}" ]; then
   discovered_model="$(discover_model "${LLAMA_CPP_BASE_URL}" "chat")"
   if [ -n "${discovered_model}" ]; then
@@ -110,6 +134,17 @@ if [ -z "${LLAMA_CPP_EMBED_MODEL:-}" ]; then
   if [ -n "${discovered_embed_model}" ]; then
     export LLAMA_CPP_EMBED_MODEL="${discovered_embed_model}"
     echo "[backend] Auto-selected embedding model: ${LLAMA_CPP_EMBED_MODEL}"
+  elif [ "${LLAMA_CPP_EMBED_BASE_URL%/}" = "${LLAMA_CPP_BASE_URL%/}" ]; then
+    sibling_embed_url="$(derive_sibling_endpoint "${LLAMA_CPP_BASE_URL}")"
+    if [ -n "${sibling_embed_url}" ]; then
+      sibling_embed_model="$(discover_model "${sibling_embed_url}" "embedding")"
+      if [ -n "${sibling_embed_model}" ]; then
+        export LLAMA_CPP_EMBED_BASE_URL="${sibling_embed_url}"
+        export LLAMA_CPP_EMBED_MODEL="${sibling_embed_model}"
+        echo "[backend] Auto-selected dedicated embedding endpoint: ${LLAMA_CPP_EMBED_BASE_URL}"
+        echo "[backend] Auto-selected embedding model: ${LLAMA_CPP_EMBED_MODEL}"
+      fi
+    fi
   fi
 fi
 
@@ -120,9 +155,12 @@ if [ -z "${LLAMA_CPP_EMBED_MODEL:-}" ]; then
   echo "[backend] RAG retrieval may fallback to direct chat response."
 fi
 
-if [ "${FORCE_REINGEST}" = "1" ] || [ ! -d "${INDEX_DIR}" ] || [ -z "$(ls -A "${INDEX_DIR}" 2>/dev/null)" ]; then
+if [ "${FORCE_REINGEST}" = "1" ]; then
   echo "[backend] Building/refreshing vector index..."
   python "${PROJECT_DIR}/scripts/data/ingest.py"
+elif [ ! -d "${INDEX_DIR}" ] || [ -z "$(ls -A "${INDEX_DIR}" 2>/dev/null)" ]; then
+  echo "[backend] WARNING: index is missing/empty at ${INDEX_DIR}."
+  echo "[backend] Run 'make ingest' or 'make reingest' when you want to build it."
 else
   echo "[backend] Existing index found at ${INDEX_DIR}. Skipping reingest."
 fi

@@ -9,6 +9,7 @@ from .llama_cpp import (
     filter_embedding_models,
     is_embedding_model_name,
     list_remote_models,
+    resolve_embedding_endpoint,
     resolve_model_alias,
 )
 from .llm import LlamaCppLLM
@@ -54,11 +55,12 @@ def build_pipeline(settings: Optional[Settings] = None) -> RagPipeline:
     llm_endpoints = build_endpoint_urls(llm_base_url, rpc_targets)
     llm_remote_models = list_remote_models(llm_endpoints, runtime_settings.llama_cpp.timeout_s)
 
-    embed_base_url = (runtime_settings.llama_cpp.embed_base_url or "").strip() or llm_base_url
-    same_base_url = embed_base_url.rstrip("/") == llm_base_url.rstrip("/")
-    embed_rpc_targets = rpc_targets if same_base_url else []
-    embed_endpoints = build_endpoint_urls(embed_base_url, embed_rpc_targets)
-    embed_remote_models = list_remote_models(embed_endpoints, runtime_settings.llama_cpp.timeout_s)
+    embed_base_url, embed_rpc_targets, embed_remote_models = resolve_embedding_endpoint(
+        llm_base_url=llm_base_url,
+        configured_embed_base_url=runtime_settings.llama_cpp.embed_base_url,
+        rpc_targets=rpc_targets,
+        timeout_s=runtime_settings.llama_cpp.timeout_s,
+    )
 
     llm_model = _resolve_chat_model(_resolve_model(runtime_settings), llm_remote_models)
     embed_model_config = (runtime_settings.llama_cpp.embed_model or "").strip()

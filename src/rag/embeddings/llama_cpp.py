@@ -63,7 +63,18 @@ class LlamaCppEmbeddings(Embeddings):
             raise ValueError(
                 f"llama.cpp rejected /v1/embeddings for model '{self.model}' at {url}: {detail}.{hint}"
             )
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            detail = _extract_error_message(resp)
+            hint = ""
+            if resp.status_code >= 500:
+                hint = (
+                    " If chat and embeddings use different models, run a dedicated embedding endpoint "
+                    "and set LLAMA_CPP_EMBED_BASE_URL / LLAMA_CPP_EMBED_MODEL."
+                )
+            raise requests.HTTPError(
+                f"llama.cpp /v1/embeddings failed (HTTP {resp.status_code}) for model '{self.model}' at {url}: {detail}.{hint}",
+                response=resp,
+            )
         data = resp.json()
         if "data" in data:
             return [item["embedding"] for item in data["data"]]

@@ -4,6 +4,7 @@ import logging
 from itertools import cycle
 from pathlib import Path
 from typing import Iterable, List, Optional
+from urllib.parse import urlparse
 
 import requests
 
@@ -113,3 +114,36 @@ def list_remote_models(
             if isinstance(model_id, str) and model_id.strip() and model_id not in names:
                 names.append(model_id.strip())
     return names
+
+
+def resolve_embedding_endpoint(
+    llm_base_url: str,
+    configured_embed_base_url: str,
+    rpc_targets: Optional[Iterable[str]],
+    timeout_s: int,
+    logger: Optional[logging.Logger] = None,
+) -> tuple[str, list[str], list[str]]:
+    embed_base_url = (configured_embed_base_url or "").strip() or llm_base_url
+    same_base_url = embed_base_url.rstrip("/") == llm_base_url.rstrip("/")
+    embed_rpc_targets = list(rpc_targets or []) if same_base_url else []
+
+    embed_endpoints = build_endpoint_urls(embed_base_url, embed_rpc_targets)
+    embed_remote_models = list_remote_models(embed_endpoints, timeout_s, logger)
+
+    # If embeddings are not exposed on the chat endpoint, try a sibling endpoint
+    # on the next port (common local split setup: 8080 chat, 8081 embeddings).
+    if same_base_url and not filter_embedding_models(embed_remote_models):
+        parsed = urlparse(llm_base_url)
+        if parsed.scheme in {"http", "https"} and parsed.hostname and parsed.port:
+            sibling_url = f"{parsed.scheme}://{parsed.hostname}:{parsed.port + 1}"
+            sibling_models = list_remote_models([sibling_url], timeout_s, logger)
+            if filter_embedding_models(sibling_models):
+                if logger:
+                    logger.info(
+                        "Auto-selected dedicated embedding endpoint: %s (from %s)",
+                        sibling_url,
+                        llm_base_url,
+                    )
+                return sibling_url, [], sibling_models
+
+    return embed_base_url, embed_rpc_targets, embed_remote_models

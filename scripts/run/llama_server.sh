@@ -20,18 +20,28 @@ if [ -z "${MODEL_PATH}" ]; then
     echo "    Download a model (e.g. llama-3.2-3b-instruct-q4_k_m.gguf) into that folder, then rerun."
     exit 1
   fi
-  for candidate in "${gguf_files[@]}"; do
-    name_lower="$(basename "${candidate}" | tr '[:upper:]' '[:lower:]')"
-    if [[ "${name_lower}" != *embed* ]]; then
-      MODEL_PATH="${candidate}"
-      break
-    fi
-  done
-  # If all files look like embedding models, do not start chat mode by mistake.
-  if [ -z "${MODEL_PATH}" ]; then
-    if [ "${LLAMA_EMBEDDINGS_ONLY:-0}" = "1" ]; then
+  if [ "${LLAMA_EMBEDDINGS_ONLY:-0}" = "1" ]; then
+    # In embeddings-only mode, prefer a dedicated embedding model automatically.
+    for candidate in "${gguf_files[@]}"; do
+      name_lower="$(basename "${candidate}" | tr '[:upper:]' '[:lower:]')"
+      if [[ "${name_lower}" == *embed* ]] || [[ "${name_lower}" == *embedding* ]]; then
+        MODEL_PATH="${candidate}"
+        break
+      fi
+    done
+    if [ -z "${MODEL_PATH}" ]; then
       MODEL_PATH="${gguf_files[0]}"
-    else
+    fi
+  else
+    for candidate in "${gguf_files[@]}"; do
+      name_lower="$(basename "${candidate}" | tr '[:upper:]' '[:lower:]')"
+      if [[ "${name_lower}" != *embed* ]]; then
+        MODEL_PATH="${candidate}"
+        break
+      fi
+    done
+    # If all files look like embedding models, do not start chat mode by mistake.
+    if [ -z "${MODEL_PATH}" ]; then
       echo "[-] Only embedding models were found in ${MODELS_DIR}."
       echo "    Add a chat/instruct GGUF, or run embeddings-only mode:"
       echo "    LLAMA_EMBEDDINGS_ONLY=1 make llama"
@@ -55,6 +65,8 @@ PORT="${PORT:-8080}"
 TIMEOUT="${LLAMA_TIMEOUT_S:-120}"
 LLAMA_THREADS="${LLAMA_THREADS:-8}"
 LLAMA_THREADS_BATCH="${LLAMA_THREADS_BATCH:-${LLAMA_THREADS}}"
+LLAMA_BATCH_SIZE="${LLAMA_BATCH_SIZE:-1024}"
+LLAMA_UBATCH_SIZE="${LLAMA_UBATCH_SIZE:-1024}"
 LLAMA_PARALLEL="${LLAMA_PARALLEL:-}"
 LLAMA_ENABLE_EMBEDDINGS="${LLAMA_ENABLE_EMBEDDINGS:-1}"
 LLAMA_EMBEDDINGS_ONLY="${LLAMA_EMBEDDINGS_ONLY:-0}"
@@ -93,6 +105,7 @@ fi
 
 echo "[llama-server] Model: ${MODEL_PATH}"
 echo "[llama-server] Host: ${HOST}:${PORT}"
+echo "[llama-server] Batch size (logical/physical): ${LLAMA_BATCH_SIZE}/${LLAMA_UBATCH_SIZE}"
 name_lower="$(basename "${MODEL_PATH}" | tr '[:upper:]' '[:lower:]')"
 if [[ "${name_lower}" == *embed* ]] && [ "${LLAMA_EMBEDDINGS_ONLY}" != "1" ]; then
   echo "[llama-server] WARNING: selected model looks like an embedding model."
@@ -131,6 +144,8 @@ cmd=(
   --timeout "${TIMEOUT}"
   --threads "${LLAMA_THREADS}"
   --threads-batch "${LLAMA_THREADS_BATCH}"
+  --batch-size "${LLAMA_BATCH_SIZE}"
+  --ubatch-size "${LLAMA_UBATCH_SIZE}"
 )
 
 if [ -n "${LLAMA_PARALLEL}" ]; then

@@ -58,20 +58,25 @@ Key settings (see `.env`):
 - `LLAMA_SERVER_RPC_TARGETS` for repeated `--rpc` on llama-server
 
 ### 3) Build index
-Start the llama.cpp server first, then:
+`make ingest` auto-starts a dedicated embedding `llama-server` (on `127.0.0.1:8081`) when needed.
+The temporary embedding server started by `make ingest` is stopped at the end.
+You can still run a chat server separately with `make llama`.
+
+Then run:
 ```bash
 cd /Users/jean/IdeaProjects/LLM-RAG
-source .venv/bin/activate
 make ingest
 ```
 `make ingest` is incremental (re-indexes only changed files).  
-Use `make reingest` for a full rebuild.
+`make reingest` force un rebuild complet (reset de l'index, puis ingest de tous les fichiers).
 
 ### 4) Run backend
 ```bash
 cd /Users/jean/IdeaProjects/LLM-RAG
 make backend
 ```
+`make backend` no longer triggers ingest automatically.
+Run `make ingest` / `make reingest` explicitly when you want to rebuild the index.
 
 Start llama.cpp:
 ```bash
@@ -84,13 +89,15 @@ make llama
 LLAMA_MODEL=/path/to/model.gguf make llama
 # optional tuning
 LLAMA_THREADS=8 LLAMA_THREADS_BATCH=8 LLAMA_PARALLEL=4 make llama
+# increase embedding token budget if you see "input is too large to process"
+LLAMA_BATCH_SIZE=1024 LLAMA_UBATCH_SIZE=1024 make llama
 # optional repeated --rpc
 LLAMA_SERVER_RPC_TARGETS=192.168.1.40:50052,192.168.1.41:50052 make llama
 ```
 
 ### 5) Full stack lifecycle
 ```bash
-# starts llama + backend + openwebui in background
+# starts chat llama + embedding llama + backend + openwebui in background
 make up
 
 # stops what make up started
@@ -123,8 +130,15 @@ curl -X POST http://127.0.0.1:8000/query \
   - run a dedicated embedding endpoint and set `LLAMA_CPP_EMBED_BASE_URL`
   - optionally set `LLAMA_CPP_EMBED_MODEL` to an embedding-capable model id
   - fallback mode is still available (direct LLM response without retrieval context)
+- If ingestion fails with `500` on `/v1/embeddings`:
+  - `make ingest` now auto-starts an embedding server if needed
+  - you can choose the embedding GGUF with `LLAMA_EMBED_MODEL=/path/to/model.gguf`
+  - if you already have a dedicated endpoint, set `LLAMA_CPP_EMBED_BASE_URL=http://host:port`
+  - rerun `make reingest`
+  - or increase llama-server `LLAMA_UBATCH_SIZE` (for example `1024`)
+- To stop everything started by `make up` (including managed embedding server): `make down`
 
 ## Scripts layout
 - `scripts/app/`: API and CLI entrypoints
 - `scripts/data/`: ingestion
-- `scripts/run/`: runtime launchers (`backend.sh`, `openwebui.sh`, `llama_server.sh`, `up.sh`, `down.sh`, `doctor.sh`)
+- `scripts/run/`: runtime launchers (`backend.sh`, `ingest.sh`, `openwebui.sh`, `llama_server.sh`, `up.sh`, `down.sh`, `doctor.sh`)

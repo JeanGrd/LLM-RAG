@@ -142,13 +142,14 @@ class Settings(BaseSettings):
         dotenv_settings,
         file_secret_settings,
     ):
-        # Priority: init < yaml < env < dotenv < file secrets
+        # Priority (highest -> lowest):
+        # init args, process env, .env, legacy flat env mapping, YAML defaults, file secrets.
         return (
             init_settings,
-            yaml_config_settings_source,
-            legacy_env_settings_source,
             env_settings,
             dotenv_settings,
+            legacy_env_settings_source,
+            yaml_config_settings_source,
             file_secret_settings,
         )
 
