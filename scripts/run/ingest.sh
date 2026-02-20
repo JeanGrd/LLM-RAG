@@ -98,10 +98,22 @@ stop_started_embed() {
 }
 
 start_embedding_server() {
-  if ! command -v lsof >/dev/null 2>&1; then
-    echo "[-] lsof is required to auto-start the embedding server."
-    exit 1
-  fi
+  port_in_use() {
+    local port="$1"
+    if command -v lsof >/dev/null 2>&1; then
+      lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
+      return $?
+    fi
+    if command -v ss >/dev/null 2>&1; then
+      ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$"
+      return $?
+    fi
+    if command -v netstat >/dev/null 2>&1; then
+      netstat -lnt 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$"
+      return $?
+    fi
+    return 1
+  }
 
   local embed_model_arg="${LLAMA_EMBED_MODEL:-}"
   local try_idx candidate_port candidate_url
@@ -117,7 +129,7 @@ start_embedding_server() {
       return 0
     fi
 
-    if lsof -nP -iTCP:"${candidate_port}" -sTCP:LISTEN >/dev/null 2>&1; then
+    if port_in_use "${candidate_port}"; then
       continue
     fi
 
