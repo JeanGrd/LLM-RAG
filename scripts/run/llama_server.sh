@@ -58,6 +58,7 @@ LLAMA_THREADS_BATCH="${LLAMA_THREADS_BATCH:-${LLAMA_THREADS}}"
 LLAMA_PARALLEL="${LLAMA_PARALLEL:-}"
 LLAMA_ENABLE_EMBEDDINGS="${LLAMA_ENABLE_EMBEDDINGS:-1}"
 LLAMA_EMBEDDINGS_ONLY="${LLAMA_EMBEDDINGS_ONLY:-0}"
+LLAMA_POOLING="${LLAMA_POOLING:-}"
 LLAMA_SERVER_EXTRA_ARGS="${LLAMA_SERVER_EXTRA_ARGS:-}"
 LLAMA_SERVER_RPC_TARGETS="${LLAMA_SERVER_RPC_TARGETS:-}"
 
@@ -104,8 +105,16 @@ fi
 if [ "${LLAMA_ENABLE_EMBEDDINGS}" = "1" ]; then
   echo "[llama-server] Embeddings endpoint: enabled"
 fi
+if [ "${LLAMA_ENABLE_EMBEDDINGS}" = "1" ] && [ -z "${LLAMA_POOLING}" ] && [[ "${name_lower}" != *embed* ]] && [[ "${name_lower}" != *embedding* ]]; then
+  # Recent llama.cpp rejects OpenAI-compatible /v1/embeddings when pooling is "none".
+  # Default to a safe pooling mode for chat/instruct models unless user overrides LLAMA_POOLING.
+  LLAMA_POOLING="mean"
+fi
 if [ "${LLAMA_EMBEDDINGS_ONLY}" = "1" ]; then
   echo "[llama-server] Mode: embeddings-only"
+fi
+if [ -n "${LLAMA_POOLING}" ]; then
+  echo "[llama-server] Embedding pooling: ${LLAMA_POOLING}"
 fi
 if [ "${#rpc_targets[@]}" -gt 0 ]; then
   echo "[llama-server] RPC targets:"
@@ -134,6 +143,9 @@ if [ "${#rpc_targets[@]}" -gt 0 ]; then
 fi
 if [ "${LLAMA_ENABLE_EMBEDDINGS}" = "1" ]; then
   cmd+=(--embeddings)
+fi
+if [ -n "${LLAMA_POOLING}" ]; then
+  cmd+=(--pooling "${LLAMA_POOLING}")
 fi
 if [ -n "${LLAMA_API_KEY:-}" ]; then
   cmd+=(--api-key "${LLAMA_API_KEY}")

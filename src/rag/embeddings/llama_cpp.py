@@ -9,6 +9,27 @@ from rag.llama_cpp import EndpointPool
 from .base import Embeddings
 
 
+def _extract_error_message(resp: requests.Response) -> str:
+    try:
+        payload = resp.json()
+    except ValueError:
+        payload = {}
+
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            message = error.get("message") or error.get("type")
+            if isinstance(message, str) and message.strip():
+                return message.strip()
+        for key in ("message", "detail"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    fallback = (resp.text or "").strip()
+    return fallback or f"HTTP {resp.status_code}"
+
+
 class LlamaCppEmbeddings(Embeddings):
     def __init__(
         self,
@@ -32,6 +53,15 @@ class LlamaCppEmbeddings(Embeddings):
             raise ValueError(
                 "llama.cpp /v1/embeddings is disabled (HTTP 501). "
                 "Start llama-server with --embeddings."
+            )
+        if resp.status_code == 400:
+            detail = _extract_error_message(resp)
+            low = detail.lower()
+            hint = ""
+            if "pooling type" in low and "none" in low:
+                hint = " Restart llama-server with LLAMA_POOLING=mean (example: LLAMA_POOLING=mean make llama)."
+            raise ValueError(
+                f"llama.cpp rejected /v1/embeddings for model '{self.model}' at {url}: {detail}.{hint}"
             )
         resp.raise_for_status()
         data = resp.json()
