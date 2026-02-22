@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 from typing import List, Tuple
 
@@ -23,8 +22,6 @@ from rag.text.chunking import chunk_text
 from rag.text.normalization import normalize_text
 from rag.vectorstore import ChromaVectorStore
 
-BATCH_SIZE = int(os.getenv("BATCH_SIZE", "4"))
-MAX_EMBED_RETRY_DEPTH = int(os.getenv("EMBED_RETRY_MAX_DEPTH", "12"))
 MANIFEST_VERSION = 1
 MANIFEST_FILENAME = ".ingest_manifest.json"
 
@@ -116,11 +113,13 @@ def split_document_for_embedding(doc: Document) -> List[Document]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingest documents into the vector store")
-    parser.add_argument("--data-dir", default=None, help="Override data dir")
+    parser.add_argument("--config", default=None, help="Path to YAML settings (default: config/settings.yaml)")
     args = parser.parse_args()
 
-    settings = load_settings()
-    data_dir = Path(args.data_dir or settings.paths.data_dir) / "raw"
+    settings = load_settings(config_path=args.config)
+    batch_size = settings.ingest.batch_size
+    max_embed_retry_depth = settings.ingest.embed_retry_max_depth
+    data_dir = Path(settings.paths.data_dir) / "raw"
     data_dir.mkdir(parents=True, exist_ok=True)
     index_dir = Path(settings.paths.index_dir)
     index_dir.mkdir(parents=True, exist_ok=True)
@@ -191,7 +190,7 @@ def main() -> None:
     ingested_files = 0
 
     def embed_with_retry(docs: List[Document], depth: int = 0) -> Tuple[List[Document], List[List[float]]]:
-        if depth > MAX_EMBED_RETRY_DEPTH:
+        if depth > max_embed_retry_depth:
             raise RuntimeError(
                 "Exceeded embedding retry depth while trying to split oversized chunks. "
                 "Reduce CHUNK_SIZE and retry."
@@ -246,7 +245,7 @@ def main() -> None:
                 raise RuntimeError(
                     f"Embedding endpoint failed for source '{source_hint}' "
                     f"(HTTP {status_code}, model '{embed_model}', endpoint '{embed_base_url}'). "
-                    "Start a dedicated embedding server and set LLAMA_CPP_EMBED_BASE_URL / LLAMA_CPP_EMBED_MODEL."
+                    "Start a dedicated embedding server and set llama_cpp.embed_base_url / llama_cpp.embed_model in config/settings.yaml."
                 ) from exc
 
             raise
@@ -274,7 +273,7 @@ def main() -> None:
         ingested_files += 1
         for doc in file_chunks:
             batch.append(doc)
-            if len(batch) >= BATCH_SIZE:
+            if len(batch) >= batch_size:
                 flush_batch()
 
     flush_batch()

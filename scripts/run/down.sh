@@ -34,5 +34,6 @@ stop_one() {
 stop_one "backend"
 stop_one "llama-embed"
 stop_one "llama-chat"
+stop_one "openwebui"
 
 echo "[down] done"

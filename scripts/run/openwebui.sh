@@ -20,7 +20,13 @@ source "${OPENWEBUI_VENV}/bin/activate"
 mkdir -p "${OPENWEBUI_HOME}"
 
 # Ensure frontend assets are available under static/
-pkg_root="$(${OPENWEBUI_VENV}/bin/python - <<'PY'\nimport importlib.util, os\nspec = importlib.util.find_spec('open_webui')\nprint(os.path.dirname(spec.origin))\nPY\n)"
+pkg_root="$(
+  "${OPENWEBUI_VENV}/bin/python" - <<'PY'
+import importlib.util, os
+spec = importlib.util.find_spec("open_webui")
+print(os.path.dirname(spec.origin))
+PY
+)"
 if [ -n "${pkg_root}" ] && [ ! -d "${pkg_root}/static/_app" ] && [ -d "${pkg_root}/frontend/_app" ]; then
   cp -R "${pkg_root}/frontend/_app" "${pkg_root}/static/_app"
 fi

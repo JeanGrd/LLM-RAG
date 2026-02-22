@@ -1,4 +1,4 @@
-# Deployment (RHEL 7.9) with llama.cpp
+# Deployment (RHEL 7.9/9.7) with llama.cpp
 
 ## Scope
 Single-host deployment with:
@@ -6,22 +6,23 @@ Single-host deployment with:
 - this FastAPI RAG backend
 - optional Open WebUI pointing only to `http://<host>:8000/v1`
 
-## 1) Install Python 3.11 and virtualenv
+## 1) Install Python 3.11 and llama.cpp
+Ensure `python3.11` and `llama-server` are available on PATH. Build llama.cpp if needed:
 ```bash
-cd /opt/LLM-RAG
-sudo ./scripts/setup/install_python_311_rhel7.sh
-source .venv/bin/activate
-pip install -U pip
-pip install -e .
-cp .env .env.local  # optional personal copy
+git clone https://github.com/ggerganov/llama.cpp
+cd llama.cpp && cmake -B build && cmake --build build -j
+sudo cp build/bin/llama-server /usr/local/bin/
 ```
 
-Config precedence:
-- `config/settings.yaml` provides defaults
-- `.env` overrides only what you set
-- keep `.env` minimal (do not duplicate every key)
+## 2) Project setup
+```bash
+cd /opt/LLM-RAG
+make install    # creates .venv-backend and .venv-openwebui
+```
 
-## 2) Start llama.cpp server
+Configuration: `config/settings.yaml` is the single source of truth (no .env).
+
+## 3) Start llama.cpp server
 ```bash
 llama-server \
   --model /opt/models/your-chat-model.gguf \
@@ -30,30 +31,25 @@ llama-server \
   --timeout 120
 ```
 
-If you have additional remote endpoints, set `LLAMA_CPP_RPC_TARGETS`.
-For split chat/embedding servers, also set `LLAMA_CPP_EMBED_BASE_URL`.
+If you have additional remote endpoints, set `llama_cpp.rpc_targets` in `config/settings.yaml`.
+For split chat/embedding servers, set `llama_cpp.embed_base_url`.
 
-## 3) Build or rebuild the vector index
+## 4) Build or rebuild the vector index
 ```bash
 cd /opt/LLM-RAG
-source .venv/bin/activate
 make ingest      # incremental
 # or full rebuild:
 make reingest
 ```
 
-## 4) Run API
+## 5) Run API
+Configure `config/settings.yaml` (llama_cpp.base_url, llama_cpp.embed_base_url, llm_model, embed_model, server.host/port), puis :
 ```bash
 cd /opt/LLM-RAG
-source .venv/bin/activate
-export LLAMA_CPP_BASE_URL=http://127.0.0.1:8080
-export LLAMA_CPP_EMBED_BASE_URL=http://127.0.0.1:8081  # optional split endpoint
-# Use the exact id returned by: curl http://127.0.0.1:8080/v1/models
-export LLAMA_CPP_LLM_MODEL=your-chat-model.gguf
-HOST=0.0.0.0 PORT=8000 python scripts/app/run_api.py
+make backend
 ```
 
-## 5) Verify
+## 6) Verify
 ```bash
 curl -X POST http://127.0.0.1:8000/query \
   -H 'Content-Type: application/json' \

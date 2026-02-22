@@ -8,8 +8,10 @@ __pycache__/
 .ruff_cache/
 .venv/
 .venv-backend/
-.venv-llama/
 .venv-openwebui/
+.openwebui/
+.cache/
+tmp/
 
 # Env
 .env
@@ -26,6 +28,7 @@ __pycache__/
 /.run/
 
 # Local models
+/models/**/*.gguf
 /models/*.gguf
 
 # OS

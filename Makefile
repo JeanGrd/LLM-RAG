@@ -1,13 +1,9 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install ingest reingest backend llama up down clean openwebui
+.PHONY: help install ingest reingest backend llama up down clean clean-data clean-all openwebui
 
 BACKEND_VENV ?= .venv-backend
-
-ifneq (,$(wildcard .env))
-include .env
-export
-endif
+OPENWEBUI_VENV ?= .venv-openwebui
 
 help:
 	@echo "Targets:"
@@ -16,9 +12,11 @@ help:
 	@echo "  make reingest   Reset index then ingest from scratch"
 	@echo "  make backend    Start API only (expects running llama servers)"
 	@echo "  make llama      Start chat + embed servers"
-	@echo "  make up         Start chat + embed + backend"
-	@echo "  make down       Stop managed servers (chat, embed, backend)"
+	@echo "  make up         Start chat + embed + backend + WebUI"
+	@echo "  make down       Stop managed servers (chat, embed, backend, WebUI)"
 	@echo "  make clean      Remove venvs and runtime pids/logs"
+	@echo "  make clean-data Remove indices/cache/tmp/.openwebui (destroys search index)"
+	@echo "  make clean-all  clean + clean-data"
 	@echo "  make openwebui  Start Open WebUI (uses .venv-openwebui)"
 
 install:
@@ -43,7 +41,12 @@ down:
 	./scripts/run/down.sh
 
 clean:
-	rm -rf $(BACKEND_VENV) .venv-openwebui .run
+	rm -rf $(BACKEND_VENV) $(OPENWEBUI_VENV) .run
+
+clean-data:
+	rm -rf .openwebui .cache tmp data/indices
+
+clean-all: clean clean-data
 
 openwebui:
 	./scripts/run/openwebui.sh

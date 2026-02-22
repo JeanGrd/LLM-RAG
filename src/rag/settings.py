@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Optional
 
 import yaml
 from pydantic import BaseModel, Field
@@ -14,6 +14,12 @@ class Paths(BaseModel):
     index_dir: str = "./data/indices"
 
 
+class ServerConfig(BaseModel):
+    host: str = "0.0.0.0"
+    port: int = 8000
+    reload: bool = False
+
+
 class LlamaCppConfig(BaseModel):
     base_url: str = "http://127.0.0.1:8080"
     embed_base_url: str = ""  # optional dedicated endpoint for /v1/embeddings
@@ -21,6 +27,9 @@ class LlamaCppConfig(BaseModel):
     embed_model: str = ""  # falls back to llm_model when empty
     timeout_s: int = 120
     rpc_targets: list[str] = Field(default_factory=list)
+    threads: int = 4
+    batch_size: Optional[int] = None
+    ubatch_size: Optional[int] = None
 
     def resolved_rpc_targets(self) -> list[str]:
         targets: list[str] = []
@@ -32,10 +41,16 @@ class LlamaCppConfig(BaseModel):
 
 
 class RagConfig(BaseModel):
-    top_k: int = 5
-    chunk_size: int = 900
-    chunk_overlap: int = 180
+    top_k: int = 4
+    chunk_size: int = 320
+    chunk_overlap: int = 64
     min_score: float = 0.0
+
+
+class IngestConfig(BaseModel):
+    batch_size: int = 4
+    embed_retry_max_depth: int = 12
+    wait_ready_s: int = 90
 
 
 def _coerce_env_number(value: Any, allow_float: bool = False) -> Any:
@@ -52,11 +67,13 @@ def _coerce_env_number(value: Any, allow_float: bool = False) -> Any:
         return value
 
 
+_CONFIG_PATH = Path("config/settings.yaml")
+
+
 def yaml_config_settings_source() -> Dict[str, Any]:
-    config_path = os.getenv("RAG_CONFIG_PATH", "config/settings.yaml")
-    if not os.path.exists(config_path):
+    if not _CONFIG_PATH.exists():
         return {}
-    with open(config_path, "r", encoding="utf-8") as f:
+    with _CONFIG_PATH.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     if not isinstance(data, dict):
         return {}
@@ -87,12 +104,13 @@ def _ensure_writable_dir(path: str, fallback_leaf: str) -> str:
 class Settings(BaseSettings):
     app_env: str = "local"
     log_level: str = "INFO"
+    server: ServerConfig = Field(default_factory=ServerConfig)
     paths: Paths = Field(default_factory=Paths)
     llama_cpp: LlamaCppConfig = Field(default_factory=LlamaCppConfig)
     rag: RagConfig = Field(default_factory=RagConfig)
+    ingest: IngestConfig = Field(default_factory=IngestConfig)
 
     model_config = SettingsConfigDict(
-        env_nested_delimiter="__",
         extra="ignore",
         env_file=None,
     )
@@ -107,10 +125,9 @@ class Settings(BaseSettings):
         file_secret_settings,
     ):
         # Priority (highest -> lowest):
-        # init args, process env, YAML defaults, file secrets.
+        # init args, YAML defaults, file secrets.
         return (
             init_settings,
-            env_settings,
             yaml_config_settings_source,
             file_secret_settings,
         )
@@ -119,7 +136,10 @@ class Settings(BaseSettings):
         return "llama_cpp"
 
 
-def load_settings() -> Settings:
+def load_settings(config_path: Optional[str | os.PathLike[str]] = None) -> Settings:
+    global _CONFIG_PATH
+    if config_path is not None:
+        _CONFIG_PATH = Path(config_path)
     settings = Settings()
     settings.paths.data_dir = str(Path(settings.paths.data_dir).expanduser())
     settings.paths.index_dir = _ensure_writable_dir(settings.paths.index_dir, "indices")

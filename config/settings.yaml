@@ -1,20 +1,33 @@
 app_env: local
 log_level: INFO
 
+server:
+  host: 0.0.0.0
+  port: 8000
+  reload: false
+
 paths:
   data_dir: ./data
   index_dir: ./data/indices
 
 llama_cpp:
   base_url: http://127.0.0.1:8080
-  embed_base_url: ""
-  llm_model: ""
-  embed_model: ""
+  embed_base_url: http://127.0.0.1:8081
+  llm_model: ./models/Qwen3-8B-Q4_K_M.gguf
+  embed_model: ./models/Qwen3-Embedding-0.6B-Q8_0.gguf
   timeout_s: 120
   rpc_targets: []
+  threads: 4
+  batch_size: null
+  ubatch_size: null
 
 rag:
   top_k: 4
   chunk_size: 320
   chunk_overlap: 64
   min_score: 0.0
+
+ingest:
+  batch_size: 4
+  embed_retry_max_depth: 12
+  wait_ready_s: 90

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create virtualenvs for backend and Open WebUI (llama uses native binary).
+# Create venvs for backend and Open WebUI. Llama uses native llama-server; no llama venv.
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -9,8 +9,7 @@ PY_BIN="${PYTHON_BIN:-python3.11}"
 OPENWEBUI_PY_BIN="${OPENWEBUI_PY_BIN:-python3.11}"
 
 create_venv() {
-  local venv_path="$1"
-  local py_bin="$2"
+  local venv_path="$1"; local py_bin="$2"
   if [ -d "${venv_path}" ]; then
     echo "[install] venv already exists: ${venv_path}"
     return 0
@@ -40,6 +39,16 @@ pip_install "${BACKEND_VENV}" -e "${PROJECT_DIR}" --no-build-isolation
 create_venv "${OPENWEBUI_VENV}" "${OPENWEBUI_PY_BIN}"
 pip_install "${OPENWEBUI_VENV}" -U pip setuptools wheel
 pip_install "${OPENWEBUI_VENV}" open-webui
+# copy frontend assets into static if missing
+"${OPENWEBUI_VENV}/bin/python" - <<'PY'
+import importlib.util, os, shutil
+spec = importlib.util.find_spec("open_webui")
+root = os.path.dirname(spec.origin)
+src = os.path.join(root, "frontend", "_app")
+dst = os.path.join(root, "static", "_app")
+if os.path.isdir(src) and not os.path.isdir(dst):
+    shutil.copytree(src, dst)
+PY
 
 echo "[install] Done."
 echo "[install] Backend venv : ${BACKEND_VENV}"

@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-import os
+from rag.settings import load_settings
 
 import uvicorn
 
 
 def main() -> None:
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8000"))
-    reload = os.getenv("RELOAD", "false").lower() == "true"
-    uvicorn.run("rag.api.app:app", host=host, port=port, reload=reload)
+    settings = load_settings()
+    uvicorn.run(
+        "rag.api.app:app",
+        host=settings.server.host,
+        port=settings.server.port,
+        reload=settings.server.reload,
+    )
 
 
 if __name__ == "__main__":
