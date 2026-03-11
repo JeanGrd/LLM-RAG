@@ -1,4 +1,4 @@
-# LLM-RAG (English)
+# LLM-RAG
 
 Fast, minimal Retrieval-Augmented Generation stack with:
 - Ollama for embeddings + local/fallback LLM
